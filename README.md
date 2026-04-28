@@ -69,8 +69,10 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 - 交付包里的技能文件是否完整。
 - 默认配置是否能读取。
 - 源 VMX 是否存在。
-- 目标盘是否存在、空间是否够。
+- 目标盘是否存在、是否至少够 1 台克隆并额外预留 100GB。
 - VMware Workstation 的 `vmrun` 和 `vmware-vdiskmanager` 是否能找到。
+
+安装阶段不会要求机器一次性满足 100 台的空间预算。真实克隆前，Kimi 会按本次输入的数量重新计算空间；单批最多 100 台，并且必须额外预留 100GB。
 
 检查通过后，脚本才会：
 

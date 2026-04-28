@@ -6,6 +6,14 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+function Set-Utf8BomFile {
+    param([string]$Path)
+
+    $text = [System.IO.File]::ReadAllText($Path)
+    $encoding = New-Object System.Text.UTF8Encoding($true)
+    [System.IO.File]::WriteAllText($Path, $text, $encoding)
+}
+
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $packageFolder = "AutoVMware-Kimi-Ops-v$Version"
 $zipName = "AutoVMware-Kimi-Ops-v$Version.zip"
@@ -39,6 +47,9 @@ foreach ($item in $items) {
 Get-ChildItem -LiteralPath $staging -Recurse -Force -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
 Get-ChildItem -LiteralPath $staging -Recurse -Force -Directory -Filter ".pytest_cache" | Remove-Item -Recurse -Force
 Get-ChildItem -LiteralPath $staging -Recurse -Force -Directory -Filter ".venv" | Remove-Item -Recurse -Force
+Get-ChildItem -LiteralPath $staging -Recurse -Force -File -Filter "*.ps1" | ForEach-Object {
+    Set-Utf8BomFile -Path $_.FullName
+}
 
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
