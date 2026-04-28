@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$packageName = "autovmware-kimi-ops-runbook-v$Version"
+$packageName = "AutoVMware-Kimi-运维交付包-v$Version"
 $staging = Join-Path $repoRoot ".release\$packageName"
 $zipPath = Join-Path $repoRoot "$OutputDir\$packageName.zip"
 
@@ -22,6 +22,7 @@ $items = @(
     "install.ps1",
     "pyproject.toml",
     "uv.lock",
+    "docs",
     "scripts",
     "skills",
     "tests"
@@ -43,4 +44,4 @@ if (Test-Path -LiteralPath $zipPath) {
 }
 
 Compress-Archive -LiteralPath $staging -DestinationPath $zipPath
-Write-Host "Release package created: $zipPath"
+Write-Host "Release 压缩包已生成：$zipPath"

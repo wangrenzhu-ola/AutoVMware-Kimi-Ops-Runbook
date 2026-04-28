@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for safe DEM-009 AutoVMware macOS VMX clone discovery and planning."""
+"""AutoVMware macOS VMX 克隆安全检查和计划工具。"""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "config" / "defaults.j
 def drive_root(letter: str) -> Path:
     clean = letter.strip().rstrip(":\\/")
     if len(clean) != 1 or not clean.isalpha():
-        raise GateError("E_INVALID_PARAM", "drive must be a single drive letter")
+        raise GateError("E_INVALID_PARAM", "盘符只能写一个字母，例如 F")
     return Path(f"{clean.upper()}:\\")
 
 
@@ -83,13 +83,13 @@ def discover_tooling(repo_root: Path) -> list[str]:
 def load_config(path: Path | None = None) -> dict[str, Any]:
     config_path = path or DEFAULT_CONFIG
     if not config_path.exists():
-        raise GateError("E_CONFIG_MISSING", f"config not found: {config_path}")
+        raise GateError("E_CONFIG_MISSING", f"找不到配置文件：{config_path}")
     try:
         payload = json.loads(config_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise GateError("E_INVALID_PARAM", f"config JSON is invalid: {exc}") from exc
+        raise GateError("E_INVALID_PARAM", f"配置文件不是合法 JSON：{exc}") from exc
     if not isinstance(payload, dict):
-        raise GateError("E_INVALID_PARAM", "config must be a JSON object")
+        raise GateError("E_INVALID_PARAM", "配置文件必须是一个 JSON 对象")
     return payload
 
 
@@ -98,7 +98,7 @@ def approval_from_config(config: dict[str, Any], clone_count: int) -> dict[str, 
     payload["clone_count"] = clone_count
     payload.setdefault("approved_action", "clone")
     payload.setdefault("approved_by", "human")
-    payload.setdefault("approval_note", "Generated from default skill config. Human must approve before execution.")
+    payload.setdefault("approval_note", "根据默认配置生成。真实克隆前必须由人工确认。")
     return payload
 
 
@@ -131,42 +131,42 @@ def doctor_result(config_path: Path | None = None) -> dict[str, Any]:
     root = Path(approval.target_root[:3])
     tools = find_vmware_tools()
     checks = {
-        "python": sys.version.split()[0],
-        "platform": sys.platform,
-        "is_windows": os.name == "nt",
-        "config_path": str(config_path or DEFAULT_CONFIG),
-        "source_vmx_configured": bool(approval.source_vmx),
-        "source_vmx_exists": source.exists() if os.name == "nt" else None,
-        "target_root_exists": target_root.exists() if os.name == "nt" else None,
-        "target_drive_free_gb": disk_free_gb(root),
-        "vmrun": tools["vmrun"],
-        "vmware_vdiskmanager": tools["vmware-vdiskmanager"],
-        "kimi_cli": shutil.which("kimi"),
-        "warnings": warnings,
+        "Python 版本": sys.version.split()[0],
+        "运行平台": sys.platform,
+        "是否 Windows": os.name == "nt",
+        "配置文件": str(config_path or DEFAULT_CONFIG),
+        "是否已配置源 VMX": bool(approval.source_vmx),
+        "源 VMX 是否存在": source.exists() if os.name == "nt" else None,
+        "输出目录是否存在": target_root.exists() if os.name == "nt" else None,
+        "目标盘剩余空间 GB": disk_free_gb(root),
+        "vmrun 路径": tools["vmrun"],
+        "vmware-vdiskmanager 路径": tools["vmware-vdiskmanager"],
+        "Kimi CLI 路径": shutil.which("kimi"),
+        "警告": warnings,
     }
     blockers: list[str] = []
     if os.name == "nt":
         if not checks["source_vmx_exists"]:
-            blockers.append("source_vmx does not exist")
+            blockers.append("源 VMX 不存在")
         if not checks["vmrun"]:
-            blockers.append("vmrun was not found")
+            blockers.append("找不到 vmrun")
         if not checks["vmware_vdiskmanager"]:
-            blockers.append("vmware-vdiskmanager was not found")
-        free_gb = checks["target_drive_free_gb"]
+            blockers.append("找不到 vmware-vdiskmanager")
+        free_gb = checks["目标盘剩余空间 GB"]
         if isinstance(free_gb, float):
             try:
                 validate_free_space(free_gb, approval)
             except GateError as exc:
                 blockers.append(exc.message)
     else:
-        blockers.append("doctor is running outside Windows, so VMware paths cannot be fully verified")
+        blockers.append("当前不是 Windows 环境，无法完整检查 VMware 路径")
     return {
         "ok": not blockers,
-        "action": "doctor",
+        "action": "环境检查",
         "real_vm_action_executed": False,
         "checks": checks,
         "blockers": blockers,
-        "forbidden_actions": "none",
+        "forbidden_actions": "未触发",
     }
 
 
@@ -182,18 +182,18 @@ def make_plan(approval_path: Path, *, free_gb: float | None = None) -> dict[str,
     validate_free_space(free_gb, approval)
     return {
         "ok": True,
-        "action": "plan_only",
+        "action": "只生成计划",
         "real_vm_action_executed": False,
         "warnings": warnings,
         "approval": approval.__dict__,
         "estimated_budget_gb": approval.estimated_budget_gb(),
         "target_vmx_paths": approval.target_vmx_paths(),
         "hard_gates": [
-            "approval JSON validated",
-            "clone_count is 1..5",
-            "power_on is explicit",
-            "no env file path referenced",
-            "plan generated without executing clone",
+            "审批文件已校验",
+            "克隆数量在 1 到 5 之间",
+            "是否开机已明确",
+            "没有引用 env 文件路径",
+            "只生成计划，没有执行克隆",
         ],
     }
 
@@ -206,32 +206,40 @@ def output_result(result: dict[str, Any], fmt: str) -> None:
 
 
 def markdown_result(result: dict[str, Any]) -> str:
-    lines = ["# AutoVMware macOS VMX Clone Result", ""]
+    lines = ["# AutoVMware macOS VMX 克隆结果", ""]
+    labels = {
+        "ok": "是否通过",
+        "action": "动作",
+        "real_vm_action_executed": "是否执行真实虚拟机动作",
+        "drive": "检查盘符",
+        "free_gb": "剩余空间 GB",
+        "estimated_budget_gb": "预计需要空间 GB",
+    }
     for key in ("ok", "action", "real_vm_action_executed", "drive", "free_gb", "estimated_budget_gb"):
         if key in result:
-            lines.append(f"- {key}: `{result[key]}`")
+            lines.append(f"- {labels[key]}: `{result[key]}`")
     if result.get("candidates"):
-        lines.extend(["", "## Candidates"])
+        lines.extend(["", "## 候选源镜像"])
         for item in result["candidates"]:
-            lines.append(f"- `{item['path']}` score={item['score']} modified={item['modified']}")
+            lines.append(f"- `{item['path']}` 匹配分={item['score']} 修改时间={item['modified']}")
     if result.get("target_vmx_paths"):
-        lines.extend(["", "## Planned Targets"])
+        lines.extend(["", "## 计划生成的目标 VMX"])
         for path in result["target_vmx_paths"]:
             lines.append(f"- `{path}`")
     if result.get("tooling"):
-        lines.extend(["", "## Tooling Hints"])
+        lines.extend(["", "## 发现的相关工具"])
         for path in result["tooling"]:
             lines.append(f"- `{path}`")
     if result.get("warnings"):
-        lines.extend(["", "## Warnings"])
+        lines.extend(["", "## 警告"])
         for warning in result["warnings"]:
             lines.append(f"- {warning}")
     if result.get("checks"):
-        lines.extend(["", "## Doctor Checks"])
+        lines.extend(["", "## 环境检查项"])
         for key, value in result["checks"].items():
             lines.append(f"- {key}: `{value}`")
     if result.get("blockers"):
-        lines.extend(["", "## Blockers"])
+        lines.extend(["", "## 阻断项"])
         for blocker in result["blockers"]:
             lines.append(f"- {blocker}")
     return "\n".join(lines) + "\n"
@@ -242,14 +250,14 @@ def command_discover(args: argparse.Namespace) -> int:
     repo_root = Path.cwd()
     result = {
         "ok": True,
-        "action": "discovery_only",
+        "action": "只读发现",
         "real_vm_action_executed": False,
         "drive": str(root),
         "free_gb": disk_free_gb(root),
         "known_candidate": KNOWN_CANDIDATE,
         "candidates": discover_vmx(root),
         "tooling": discover_tooling(repo_root),
-        "forbidden_actions": "none",
+        "forbidden_actions": "未触发",
     }
     output_result(result, args.format)
     return 0
@@ -277,7 +285,7 @@ def command_generate_approval(args: argparse.Namespace) -> int:
     validate_approval(approval)
     output_path = Path(args.output)
     if ".env" in str(output_path).lower():
-        raise GateError("E_FORBIDDEN_ACTION", "approval output must not be an env path")
+        raise GateError("E_FORBIDDEN_ACTION", "审批文件不能写到 env 路径")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"ok": True, "output": str(output_path), "real_vm_action_executed": False}, ensure_ascii=False, indent=2))
@@ -294,29 +302,29 @@ def command_report_template(args: argparse.Namespace) -> int:
     plan = make_plan(Path(args.approval_json))
     output_path = Path(args.output)
     if ".env" in str(output_path).lower():
-        raise GateError("E_FORBIDDEN_ACTION", "report output must not be an env path")
+        raise GateError("E_FORBIDDEN_ACTION", "报告不能写到 env 路径")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# DEM-009 AutoVMware macOS Clone Report",
+        "# DEM-009 AutoVMware macOS 克隆报告",
         "",
-        f"- Source VMX: `{plan['approval']['source_vmx']}`",
-        f"- Clone count: `{plan['approval']['clone_count']}`",
-        f"- Target root: `{plan['approval']['target_root']}`",
-        f"- Clone mode: `{plan['approval']['clone_mode']}`",
-        f"- Power on approved: `{plan['approval']['power_on']}`",
-        "- F drive free space before: `TODO`",
-        "- F drive free space after: `TODO`",
-        "- Forbidden actions: `TODO`",
+        f"- 源 VMX: `{plan['approval']['source_vmx']}`",
+        f"- 克隆数量: `{plan['approval']['clone_count']}`",
+        f"- 输出目录: `{plan['approval']['target_root']}`",
+        f"- 克隆方式: `{plan['approval']['clone_mode']}`",
+        f"- 是否允许开机: `{plan['approval']['power_on']}`",
+        "- 创建前 F 盘剩余空间: `待填写`",
+        "- 创建后 F 盘剩余空间: `待填写`",
+        "- 是否触发禁止动作: `待填写`",
         "",
-        "## Planned Targets",
+        "## 计划目标",
         *[f"- `{path}`" for path in plan["target_vmx_paths"]],
         "",
-        "## Clone Verification",
-        "- TODO: vmx exists for each clone",
-        "- TODO: screenshot path for each started clone, if power-on was separately approved",
+        "## 克隆验证",
+        "- 待填写：每个克隆机的 vmx 是否存在",
+        "- 待填写：每个克隆机的截图路径",
         "",
-        "## Cleanup And Rerun",
-        "- TODO: deletion approval, deletion evidence, rerun evidence",
+        "## 删除和重跑",
+        "- 待填写：删除授权、删除证据、重跑证据",
     ]
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(json.dumps({"ok": True, "output": str(output_path), "real_vm_action_executed": False}, indent=2))

@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 config/*.approval.json
-reports/
+/reports/
 dist/
 .release/
 .DS_Store

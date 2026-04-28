@@ -114,4 +114,4 @@ def test_doctor_is_read_only_and_reports_non_windows_blocker(capsys) -> None:
     assert payload["real_vm_action_executed"] is False
     if sys.platform != "win32":
         assert exit_code == 2
-        assert "outside Windows" in payload["blockers"][0]
+        assert "不是 Windows" in payload["blockers"][0]

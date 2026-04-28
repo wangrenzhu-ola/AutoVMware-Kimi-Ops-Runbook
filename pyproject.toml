@@ -1,7 +1,7 @@
 [project]
 name = "autovmware-kimi-ops-runbook"
 version = "0.1.0"
-description = "Operations runbook and Kimi skill for safe AutoVMware macOS VMX clone workflows"
+description = "给运维使用的 AutoVMware Kimi macOS VMX 克隆交付包"
 readme = "README.md"
 requires-python = ">=3.10"
 

@@ -7,7 +7,7 @@ param(
 
 $rootInstall = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "install.ps1"
 if (-not (Test-Path -LiteralPath $rootInstall)) {
-    throw "install.ps1 was not found at release root: $rootInstall"
+    throw "在交付包根目录没有找到 install.ps1：$rootInstall"
 }
 
 & $rootInstall -RepoRoot $RepoRoot -SkillSource $SkillSource -SkipKimiInstall:$SkipKimiInstall -Force:$Force

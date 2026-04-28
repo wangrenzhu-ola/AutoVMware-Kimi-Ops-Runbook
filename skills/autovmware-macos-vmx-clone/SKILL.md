@@ -1,15 +1,17 @@
 ---
 name: "autovmware-macos-vmx-clone"
-description: "Safely discover, validate, plan, and approval-gate cloning 1 to 5 macOS VMware .vmx templates on the remote Windows AutoVMware host. Use when working on DEM-009 macOS VMX clone workflows through Kimi/RustDesk and hard safeguards are required before any real VM action."
-version: "0.2.0"
+description: "用于 Windows AutoVMware 主机上的 macOS VMware VMX 克隆工作。先检查、再生成计划、再等人工确认。没有明确授权时不能执行真实虚拟机动作。"
+version: "0.2.1"
 metadata:
   hermes:
     tags: [autovmware, vmware, macos, dem009, safety]
 ---
 
-# AutoVMware macOS VMX Clone
+# AutoVMware macOS VMX 克隆
 
-Use the bundled Python CLI and `config/defaults.json` as the source of truth. Do not improvise clone commands from prose.
+这个技能给运维使用。原则很简单：先检查环境，再生成计划，再让人确认。没有确认，不做真实克隆。
+
+命令示例：
 
 ```bash
 python scripts/cli.py doctor --format markdown
@@ -17,107 +19,114 @@ python scripts/cli.py generate-approval 5 --output config/autovmware-macos-vmx-c
 python scripts/cli.py discover --drive F --format markdown
 python scripts/cli.py validate-approval --approval-json approval.json
 python scripts/cli.py plan-clone --approval-json approval.json --format markdown
-python scripts/cli.py report-template --approval-json approval.json --output docs/reports/dem009/clone-report.md
+python scripts/cli.py report-template --approval-json approval.json --output reports/dem009/clone-report.md
 ```
 
-### Default Test Configuration
+### 默认测试配置
 
-The skill includes the current DEM-009 Windows test parameters in `config/defaults.json`:
+默认配置在 `config/defaults.json`：
 
-- `source_vmx`: `F:\15.7.5\W1-OC-Mac-15.7.5\macOS 15\macOS 15.vmx`
-- `target_root`: `F:\VMs`
-- `name_prefix`: `dem009-batch`
-- `memory_gb`: `8`
-- `disk_gb`: `64`
-- `clone_mode`: `full`
-- `power_on`: `false`
-- `network`: `nat`
-- `retention_policy`: `keep`
+- 源 VMX：`F:\15.7.5\W1-OC-Mac-15.7.5\macOS 15\macOS 15.vmx`
+- 输出目录：`F:\VMs`
+- 名称前缀：`dem009-batch`
+- 内存：`8GB`
+- 磁盘：`64GB`
+- 克隆方式：`full`
+- 自动开机：`false`
+- 网络：`nat`
+- 保留策略：`keep`
 
-When the operator gives only a number such as `5`, treat it as `clone_count=5` with this default config. Generate and validate the approval JSON first, then echo the full source, target root, target paths, power policy, and retention policy. A real clone still requires the human to explicitly confirm the exact action after those details are shown.
+如果运维只输入一个数字，比如 `5`，就理解成“按默认配置克隆 5 个”。但仍然必须先生成审批文件和计划，列出完整参数，等人明确确认后才能执行真实克隆。
 
-### Natural Language Setup
+### 自然语言配置
 
-If the operator asks to configure VMware in natural language, help them edit the config values without running VM actions:
+如果运维说“帮我配置 VMware 克隆参数”，先问清楚：
 
-1. Ask for the source `.vmx`, target root, clone prefix, memory, disk, clone mode, network, and whether power-on is allowed.
-2. Write or update the config only after the operator confirms the values.
-3. Run `doctor`.
-4. Send the resulting config summary and doctor output to operations for manual validation.
+1. 源 `.vmx` 路径。
+2. 输出目录。
+3. 名称前缀。
+4. 内存。
+5. 磁盘。
+6. 克隆方式。
+7. 网络。
+8. 是否允许自动开机。
+9. 保留策略。
 
-### Hard Rules
+写配置前先复述，等确认。写完配置后运行 `doctor`，把结果发给运维确认。不要克隆。
 
-- Do not read or print `.env` files.
-- Do not run tests, start services, or run `scripts\deploy\start_all.ps1` on the remote AutoVMware host.
-- Do not create, start, stop, delete, snapshot, cleanup, clone, or batch-create any VM unless the human has approved the exact object and action.
-- Discovery is read-only. Clone execution is separate from discovery and requires a complete approval JSON.
-- `clone_count` must be from 1 to 5.
-- `power_on` must be explicit. The default is no.
-- If the CLI returns a nonzero exit code or an `E_*` error code, stop and report the failure.
-- `doctor`, `discover`, `generate-approval`, `validate-approval`, `plan-clone`, and `report-template` are non-destructive. They must report `real_vm_action_executed=false`.
+### 硬性规则
 
-### Approval JSON
+- 不读取或输出 `.env` 内容。
+- 不运行测试、服务启动脚本或 `scripts\deploy\start_all.ps1`。
+- 没有人明确授权时，不创建、启动、停止、删除、快照、清理、克隆任何虚拟机。
+- discovery 和 doctor 只能只读。
+- `clone_count` 只能是 1 到 5。
+- `power_on` 必须明确写出，默认不开机。
+- 命令返回非 0 或 `E_*` 错误时，立刻停止并汇报。
+- `doctor`、`discover`、`generate-approval`、`validate-approval`、`plan-clone`、`report-template` 都不能执行真实虚拟机动作。
 
-The human must provide every field before a real clone workflow:
+### 审批文件
+
+真实克隆前，审批文件必须包含所有字段：
 
 ```json
 {
   "source_vmx": "F:\\15.7.5\\W1-OC-Mac-15.7.5\\macOS 15\\macOS 15.vmx",
   "clone_count": 5,
   "target_root": "F:\\VMs",
-  "name_prefix": "DEM009-Mac",
+  "name_prefix": "dem009-batch",
   "memory_gb": 8,
-  "disk_gb": 60,
-  "clone_mode": "linked",
+  "disk_gb": 64,
+  "clone_mode": "full",
   "power_on": false,
-  "network": "inherit",
+  "network": "nat",
   "retention_policy": "keep",
   "approved_action": "clone",
   "approved_by": "human",
-  "approval_note": "Exact source, target, count, and power policy approved."
+  "approval_note": "运维已确认源镜像、目标目录、数量和是否开机。"
 }
 ```
 
-### Workflow
+### 标准流程
 
-1. Run `doctor` first. Fix missing config or VMware CLI setup before clone planning.
-2. For a simple request such as `5`, run `generate-approval 5`, then `validate-approval`, then `plan-clone`.
-3. Echo the full planned action and ask for explicit approval before any real clone.
-4. Only after a separate explicit instruction to execute, use AutoVMware's existing clone tooling or the project-approved clone script. Do not hand-write destructive commands.
-5. Save screenshots and final evidence paths in the report template.
+1. 先运行 `doctor`。
+2. 如果运维输入 `5`，运行 `generate-approval 5`、`validate-approval`、`plan-clone`。
+3. 把完整计划发给运维确认。
+4. 只有运维明确确认后，才调用项目内已经批准的克隆工具。
+5. 保存截图和报告。
 
-### Expected Report Evidence
+### 报告证据
 
-The final stage report should include source `.vmx`, clone count, target paths, free space before and after, clone verification, power state, screenshot paths, forbidden action report, cleanup result if approved, and rerun result if approved.
+阶段报告要包含源 VMX、克隆数量、目标路径、创建前后剩余空间、每个克隆机的验证结果、是否开机、截图路径、是否触发禁止动作、清理结果和重跑结果。
 
 ## setup
 
-Use this when an operator asks Kimi to configure VMware clone defaults in natural language. Confirm the requested source `.vmx`, target root, prefix, memory, disk, clone mode, network, power policy, and retention policy before changing config. After config is written, run `doctor` and return the config summary plus doctor output for operations validation. Do not execute VM actions.
+用于自然语言配置默认克隆参数。只允许改配置和运行 doctor，不允许执行真实虚拟机动作。
 
 ## clone
 
-Use this when an operator asks for a default batch clone by count, including a bare number such as `5`. Generate approval from default config, validate it, plan targets, and show the exact action. Stop before real clone execution until the human explicitly confirms the displayed source, count, targets, clone mode, and power policy.
+用于按数量生成默认克隆计划。比如运维输入 `5`，先生成审批文件、校验、生成计划并展示完整参数。必须等人确认后才能真实克隆。
 
 ## discover
 
-Read-only discovery only. Searches the requested drive for macOS-like `.vmx` candidates, reports free space, and lists likely AutoVMware clone tooling. It must not modify files or perform VM actions.
+只读发现。搜索可能的 macOS `.vmx`，查看磁盘空间，查看 AutoVMware 里是否有克隆工具。不修改文件，不执行虚拟机动作。
 
 ## validate-approval
 
-Validates the approval JSON fields and rejects missing approval, invalid clone counts, unsafe paths, ambiguous `power_on`, low memory/disk values, and unsupported clone modes. It does not execute VM actions.
+检查审批文件字段是否齐全、数量是否合法、路径是否安全、是否明确写出开机策略、内存和磁盘是否达标。不执行虚拟机动作。
 
 ## plan-clone
 
-Builds a deterministic clone plan from the approval JSON. It validates the same gates, estimates conservative disk budget, and returns the exact target `.vmx` paths. The plan output is still non-destructive.
+根据审批文件生成确定的克隆计划，列出每个目标 `.vmx` 路径和磁盘预算。不执行虚拟机动作。
 
 ## generate-approval
 
-Creates an approval JSON from `config/defaults.json` and a clone count. This is how a bare operator input like `5` becomes a validated, auditable request. It does not execute VM actions.
+根据默认配置和克隆数量生成审批文件。比如输入 `5`，生成 5 个克隆的审批文件。不执行虚拟机动作。
 
 ## doctor
 
-Runs read-only environment checks: config parse, Windows path validation, source `.vmx` existence on Windows, target drive free space, VMware CLI tools, Kimi CLI, and safety blockers. It does not read `.env` and does not execute VM actions.
+只读检查环境：配置是否能读、路径是否合法、Windows 上源 `.vmx` 是否存在、目标盘空间是否够、VMware CLI 是否存在、Kimi CLI 是否存在。不读取 `.env`，不执行虚拟机动作。
 
 ## report-template
 
-Writes a Markdown report scaffold for clone evidence. Use this before and after approved clone/delete/rerun work so screenshot paths, free-space evidence, and forbidden-action status are captured consistently.
+生成阶段报告模板。报告里要补充截图路径、剩余空间、每个克隆机验证结果和禁止动作检查结果。

@@ -1,4 +1,4 @@
-"""Validation gates for the DEM-009 AutoVMware macOS clone skill."""
+"""DEM-009 AutoVMware macOS 克隆安全校验。"""
 
 from __future__ import annotations
 
@@ -38,13 +38,13 @@ class GateError(Exception):
 
 def load_approval(path: Path) -> Approval:
     if not path.exists():
-        raise GateError(ERROR_APPROVAL_MISSING, f"approval JSON not found: {path}")
+        raise GateError(ERROR_APPROVAL_MISSING, f"找不到审批文件：{path}")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise GateError(ERROR_APPROVAL_MISSING, f"approval JSON is invalid: {exc}") from exc
+        raise GateError(ERROR_APPROVAL_MISSING, f"审批文件不是合法 JSON：{exc}") from exc
     if not isinstance(payload, dict):
-        raise GateError(ERROR_APPROVAL_MISSING, "approval JSON must be an object")
+        raise GateError(ERROR_APPROVAL_MISSING, "审批文件必须是一个 JSON 对象")
     return Approval.from_dict(payload)
 
 
@@ -52,46 +52,46 @@ def validate_approval(approval: Approval, *, require_existing_source: bool = Fal
     warnings: list[str] = []
 
     if not approval.source_vmx:
-        raise GateError(ERROR_APPROVAL_MISSING, "source_vmx is required")
+        raise GateError(ERROR_APPROVAL_MISSING, "必须填写 source_vmx，也就是源 VMX 路径")
     if not approval.source_vmx.lower().endswith(".vmx"):
-        raise GateError(ERROR_INVALID_PARAM, "source_vmx must end with .vmx")
+        raise GateError(ERROR_INVALID_PARAM, "source_vmx 必须以 .vmx 结尾")
     if not WINDOWS_ABSOLUTE.match(approval.source_vmx):
-        raise GateError(ERROR_INVALID_PARAM, "source_vmx must be an absolute Windows path")
+        raise GateError(ERROR_INVALID_PARAM, "source_vmx 必须是 Windows 绝对路径，例如 F:\\VMs\\macOS.vmx")
     if ".env" in approval.source_vmx.lower():
-        raise GateError(ERROR_FORBIDDEN_ACTION, "source_vmx must not reference env files")
+        raise GateError(ERROR_FORBIDDEN_ACTION, "source_vmx 不能引用 env 文件")
 
     if require_existing_source and not Path(approval.source_vmx).exists():
-        raise GateError(ERROR_SOURCE_MISSING, f"source_vmx does not exist: {approval.source_vmx}")
+        raise GateError(ERROR_SOURCE_MISSING, f"源 VMX 不存在：{approval.source_vmx}")
 
     if not (MIN_CLONE_COUNT <= approval.clone_count <= MAX_CLONE_COUNT):
-        raise GateError(ERROR_INVALID_PARAM, "clone_count must be from 1 to 5")
+        raise GateError(ERROR_INVALID_PARAM, "clone_count 必须是 1 到 5")
     if not approval.target_root or not WINDOWS_ABSOLUTE.match(approval.target_root):
-        raise GateError(ERROR_INVALID_PARAM, "target_root must be an absolute Windows path")
+        raise GateError(ERROR_INVALID_PARAM, "target_root 必须是 Windows 绝对路径，例如 F:\\VMs")
     if not SAFE_PREFIX.match(approval.name_prefix):
-        raise GateError(ERROR_INVALID_PARAM, "name_prefix must be 2-49 chars using letters, numbers, underscore, or hyphen")
+        raise GateError(ERROR_INVALID_PARAM, "name_prefix 必须是 2 到 49 个字符，只能用字母、数字、下划线或短横线")
     if approval.memory_gb < MIN_MEMORY_GB:
-        raise GateError(ERROR_INVALID_PARAM, f"memory_gb must be at least {MIN_MEMORY_GB}")
+        raise GateError(ERROR_INVALID_PARAM, f"memory_gb 至少要 {MIN_MEMORY_GB}")
     if approval.disk_gb < MIN_DISK_GB:
-        raise GateError(ERROR_INVALID_PARAM, f"disk_gb must be at least {MIN_DISK_GB}")
+        raise GateError(ERROR_INVALID_PARAM, f"disk_gb 至少要 {MIN_DISK_GB}")
     if approval.clone_mode not in VALID_CLONE_MODES:
-        raise GateError(ERROR_INVALID_PARAM, "clone_mode must be linked or full")
+        raise GateError(ERROR_INVALID_PARAM, "clone_mode 只能是 linked 或 full")
     if approval.power_on is None:
-        raise GateError(ERROR_APPROVAL_MISSING, "power_on must be explicit true or false")
+        raise GateError(ERROR_APPROVAL_MISSING, "power_on 必须明确写 true 或 false")
     if not approval.network:
-        raise GateError(ERROR_APPROVAL_MISSING, "network is required")
+        raise GateError(ERROR_APPROVAL_MISSING, "必须填写 network")
     if not approval.retention_policy:
-        raise GateError(ERROR_APPROVAL_MISSING, "retention_policy is required")
+        raise GateError(ERROR_APPROVAL_MISSING, "必须填写 retention_policy")
     if approval.approved_action not in VALID_ACTIONS:
-        raise GateError(ERROR_APPROVAL_MISSING, "approved_action must be one of clone, delete, start, stop")
+        raise GateError(ERROR_APPROVAL_MISSING, "approved_action 只能是 clone、delete、start、stop 之一")
     if approval.approved_action != "clone":
-        warnings.append(f"approval is for {approval.approved_action}; clone planning will not execute this action")
+        warnings.append(f"审批动作是 {approval.approved_action}，本命令只生成克隆计划，不执行这个动作")
     if not approval.approved_by or not approval.approval_note:
-        raise GateError(ERROR_APPROVAL_MISSING, "approved_by and approval_note are required")
+        raise GateError(ERROR_APPROVAL_MISSING, "必须填写 approved_by 和 approval_note")
 
     target_root = PureWindowsPath(approval.target_root)
     source_parent = PureWindowsPath(approval.source_vmx).parent
     if str(target_root).lower().startswith(str(source_parent).lower()):
-        raise GateError(ERROR_INVALID_PARAM, "target_root must not be inside the source VM directory")
+        raise GateError(ERROR_INVALID_PARAM, "target_root 不能放在源虚拟机目录里面")
 
     return warnings
 
@@ -101,11 +101,11 @@ def validate_free_space(free_gb: float | None, approval: Approval) -> None:
         return
     required = approval.estimated_budget_gb()
     if free_gb < required:
-        raise GateError(ERROR_SPACE_LOW, f"free space {free_gb:.1f} GB is below required budget {required} GB")
+        raise GateError(ERROR_SPACE_LOW, f"剩余空间 {free_gb:.1f} GB 小于预算 {required} GB")
 
 
 def assert_no_real_action(*, allow_real_action: bool, approval: Approval | None = None) -> None:
     if allow_real_action and approval is None:
-        raise GateError(ERROR_APPROVAL_MISSING, "real action requires validated approval")
+        raise GateError(ERROR_APPROVAL_MISSING, "真实动作必须先通过审批校验")
     if not allow_real_action:
-        raise GateError(ERROR_FORBIDDEN_ACTION, "real VM actions are disabled by default")
+        raise GateError(ERROR_FORBIDDEN_ACTION, "默认禁止真实虚拟机动作")
