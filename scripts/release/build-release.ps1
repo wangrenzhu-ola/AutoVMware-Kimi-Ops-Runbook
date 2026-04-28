@@ -7,9 +7,10 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$packageName = "AutoVMware-Kimi-运维交付包-v$Version"
-$staging = Join-Path $repoRoot ".release\$packageName"
-$zipPath = Join-Path $repoRoot "$OutputDir\$packageName.zip"
+$packageFolder = "AutoVMware-Kimi-Ops-v$Version"
+$zipName = "AutoVMware-Kimi-运维交付包-v$Version.zip"
+$staging = Join-Path $repoRoot ".release\$packageFolder"
+$zipPath = Join-Path $repoRoot "$OutputDir\$zipName"
 
 if (Test-Path -LiteralPath $staging) {
     Remove-Item -LiteralPath $staging -Recurse -Force
