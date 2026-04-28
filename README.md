@@ -2,27 +2,34 @@
 
 本仓库当前交付目标是把 `autovmware-macos-vmx-clone` 技能部署给运维人员使用。部署成功后，运维可以在 Windows AutoVMware 仓库里直接和 Kimi 说话，但必须让 Kimi 使用固定技能和默认配置，不要随口执行 VMware 命令。
 
-## 一键初始化
+## 下载 Release 后一键初始化
 
-在 Windows 目标机 PowerShell 中运行：
+运维人员不需要安装 git。进入 GitHub Release 页面，下载 `autovmware-kimi-ops-runbook-v*.zip`，在 Windows 目标机解压后运行：
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
-.\scripts\bootstrap\windows-init-autovmware-kimi.ps1
+.\install.ps1
 ```
 
 脚本会做这些事：
 
-- 检查 `python` 和 `git`。
-- 如本机没有 `kimi` 命令，使用 Kimi Code 官方安装脚本安装 Kimi CLI。
+- 先运行 install doctor。检查不通过时不会执行安装或写配置。
+- 检查 Windows、PowerShell、`python`、技能文件、默认配置、源 VMX、目标盘、目标盘空间、`vmrun`、`vmware-vdiskmanager`。
+- doctor 通过后，如本机没有 `kimi` 命令，使用 Kimi Code 官方安装脚本安装 Kimi CLI。
 - 创建 `C:\Users\PC12\Documents\AutoVMware\config` 和 `reports\dem009\screenshots`。
 - 复制默认配置到 `C:\Users\PC12\Documents\AutoVMware\config\autovmware-macos-vmx-clone.json`，如果目标配置已存在则不覆盖。
 - 在脚本末尾打印后续 Kimi 使用命令。
 
-如果只想准备目录、不安装 Kimi：
+如果只想准备目录、不安装 Kimi CLI：
 
 ```powershell
-.\scripts\bootstrap\windows-init-autovmware-kimi.ps1 -SkipKimiInstall
+.\install.ps1 -SkipKimiInstall
+```
+
+如果 doctor 报出阻断项，先修复后重跑。只有运维明确接受阻断项时才使用：
+
+```powershell
+.\install.ps1 -Force
 ```
 
 ## 默认测试配置
@@ -106,7 +113,7 @@ use autovmware-macos-vmx-clone clone 5
 
 ## Doctor 检查
 
-技能提供只读 doctor：
+Release 初始化脚本内置 install doctor，技能本身也提供只读 doctor：
 
 ```powershell
 python skills\autovmware-macos-vmx-clone\scripts\cli.py doctor --format markdown
@@ -194,3 +201,13 @@ use autovmware-macos-vmx-clone doctor
 ```
 
 如果 doctor 失败，先修配置或 VMware/Kimi 安装，再重新 doctor。路径不确定、磁盘空间不足、工具行为不清楚、Kimi 输出污染时，立即停止并汇报，不继续执行真实 VM 动作。
+
+## 维护者发布 Release
+
+维护者在本仓库根目录运行：
+
+```powershell
+.\scripts\release\build-release.ps1 -Version 0.1.0
+```
+
+然后把 `dist\autovmware-kimi-ops-runbook-v0.1.0.zip` 上传到 GitHub Release。运维只需要下载这个 zip，不需要 git 环境。

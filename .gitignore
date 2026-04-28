@@ -4,4 +4,6 @@ __pycache__/
 .venv/
 config/*.approval.json
 reports/
+dist/
+.release/
 .DS_Store
