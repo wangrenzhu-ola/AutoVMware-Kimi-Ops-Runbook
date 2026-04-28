@@ -21,7 +21,7 @@ docs\reports\dem009\first-batch-clone-evidence.md
 
 ## 下载和安装
 
-到本仓库的 Release 页面下载最新的 `AutoVMware-Kimi-运维交付包-v*.zip`，在 Windows 目标机解压，然后在解压目录运行：
+到本仓库的 Release 页面下载最新的 `AutoVMware-Kimi-Ops-v*.zip`。Release 标题和说明是中文，附件文件名保留英文是为了避免 Windows 或浏览器下载时出现乱码。下载后在 Windows 目标机解压，然后在解压目录运行：
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
@@ -220,4 +220,4 @@ python skills\autovmware-macos-vmx-clone\scripts\cli.py report-template --approv
 .\scripts\release\build-release.ps1 -Version 0.1.1
 ```
 
-然后把生成的 zip 上传到 GitHub Release。运维只需要下载 zip，不需要 git。
+然后把生成的 zip 上传到 GitHub Release。Release 标题和说明用中文写，运维只需要下载 zip，不需要 git。

@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $packageFolder = "AutoVMware-Kimi-Ops-v$Version"
-$zipName = "AutoVMware-Kimi-运维交付包-v$Version.zip"
+$zipName = "AutoVMware-Kimi-Ops-v$Version.zip"
 $staging = Join-Path $repoRoot ".release\$packageFolder"
 $zipPath = Join-Path $repoRoot "$OutputDir\$zipName"
 
