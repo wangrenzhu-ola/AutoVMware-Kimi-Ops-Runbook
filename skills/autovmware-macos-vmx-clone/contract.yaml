@@ -1,0 +1,135 @@
+name: autovmware-macos-vmx-clone
+version: 0.2.0
+description: Safely discover, validate, plan, and approval-gate cloning 1 to 5 macOS VMware .vmx templates on the remote Windows AutoVMware host.
+commands:
+  setup:
+    description: Help an operator configure the clone defaults in natural language, then run doctor for read-only validation.
+    inputs:
+      - name: source_vmx
+        type: string
+        required: false
+        description: Source VMX path to write into config.
+      - name: target_root
+        type: string
+        required: false
+        description: Clone target root to write into config.
+      - name: natural_language_request
+        type: string
+        required: false
+        description: Operator's natural-language VMware clone configuration request.
+    outputs:
+      type: object
+      description: Config summary, doctor result, and manual validation handoff.
+  clone:
+    description: Interpret a simple clone count using the default config, generate approval, plan targets, and wait for explicit real-action approval.
+    inputs:
+      - name: count
+        type: integer
+        required: true
+        description: Clone count. Must be 1 to 5.
+    outputs:
+      type: object
+      description: Approval file, planned target paths, and explicit approval prompt.
+  discover:
+    description: Read-only search for macOS-like VMware .vmx candidates and free space.
+    inputs:
+      - name: drive
+        type: string
+        required: false
+        default: F
+        pattern: "^[A-Za-z]$"
+        description: Windows drive letter to inspect.
+      - name: format
+        type: string
+        required: false
+        default: json
+        enum: [json, markdown]
+        description: Output format.
+    outputs:
+      type: object
+      description: Candidate VMX files, drive space, clone tooling hints, and forbidden action status.
+  validate-approval:
+    description: Validate a human approval JSON without performing VM actions.
+    inputs:
+      - name: approval_json
+        type: string
+        required: true
+        description: Path to approval JSON.
+    outputs:
+      type: object
+      description: Validation result and normalized approval.
+  plan-clone:
+    description: Build a deterministic clone plan from approved parameters without executing it.
+    inputs:
+      - name: approval_json
+        type: string
+        required: true
+        description: Path to approval JSON.
+      - name: format
+        type: string
+        required: false
+        default: json
+        enum: [json, markdown]
+        description: Output format.
+    outputs:
+      type: object
+      description: Validated clone plan and safety gates.
+  generate-approval:
+    description: Generate an approval JSON from the skill default config and a clone count without executing VM actions.
+    inputs:
+      - name: count
+        type: integer
+        required: true
+        description: Clone count. Must be 1 to 5.
+      - name: config
+        type: string
+        required: false
+        default: skills/autovmware-macos-vmx-clone/config/defaults.json
+        description: Default config path.
+      - name: output
+        type: string
+        required: false
+        default: config/autovmware-macos-vmx-clone.approval.json
+        description: Approval JSON output path.
+    outputs:
+      type: object
+      description: Approval file path and safety status.
+  doctor:
+    description: Read-only environment check for config, source VMX, VMware CLI tools, Kimi CLI, and disk space.
+    inputs:
+      - name: config
+        type: string
+        required: false
+        default: skills/autovmware-macos-vmx-clone/config/defaults.json
+        description: Config path to check.
+      - name: format
+        type: string
+        required: false
+        default: markdown
+        enum: [json, markdown]
+        description: Output format.
+    outputs:
+      type: object
+      description: Read-only doctor checks, blockers, and forbidden action status.
+  report-template:
+    description: Write a stage report template for clone verification evidence.
+    inputs:
+      - name: approval_json
+        type: string
+        required: true
+        description: Path to approval JSON.
+      - name: output
+        type: string
+        required: true
+        description: Report path to write.
+    outputs:
+      type: object
+      description: Report path and expected evidence fields.
+metadata:
+  hermes:
+    tags:
+      - autovmware
+      - vmware
+      - macos
+      - dem009
+      - safety

@@ -1,0 +1,14 @@
+[project]
+name = "autovmware-kimi-ops-runbook"
+version = "0.1.0"
+description = "Operations runbook and Kimi skill for safe AutoVMware macOS VMX clone workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

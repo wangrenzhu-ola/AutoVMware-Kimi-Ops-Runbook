@@ -1,0 +1,14 @@
+{
+  "source_vmx": "F:\\15.7.5\\W1-OC-Mac-15.7.5\\macOS 15\\macOS 15.vmx",
+  "target_root": "F:\\VMs",
+  "name_prefix": "dem009-batch",
+  "memory_gb": 8,
+  "disk_gb": 64,
+  "clone_mode": "full",
+  "power_on": false,
+  "network": "nat",
+  "retention_policy": "keep",
+  "approved_action": "clone",
+  "approved_by": "ops-default-config",
+  "approval_note": "Default DEM-009 test configuration. A human must still approve the exact real clone action before execution."
+}
