@@ -117,10 +117,11 @@ function Invoke-PreflightDoctor {
         if (-not $targetDriveOk) { $failures.Add("克隆输出目录所在磁盘不存在。") }
 
         $freeGb = Get-FreeGb $targetRoot
-        $requiredGb = ([int]$config.disk_gb * 5) + 40
+        $defaultCloneCount = 100
+        $requiredGb = ([int]$config.disk_gb * $defaultCloneCount) + 100
         $spaceOk = $null -ne $freeGb -and $freeGb -ge $requiredGb
-        Write-Check "输出盘剩余空间" $spaceOk ("剩余={0}GB，默认 5 个克隆至少需要={1}GB" -f $freeGb, $requiredGb)
-        if (-not $spaceOk) { $failures.Add("输出盘剩余空间不足，达不到默认 5 个克隆的预算。") }
+        Write-Check "输出盘剩余空间" $spaceOk ("剩余={0}GB，默认 100 个克隆至少需要={1}GB，包含 100GB 预留空间" -f $freeGb, $requiredGb)
+        if (-not $spaceOk) { $failures.Add("输出盘剩余空间不足，达不到默认 100 个克隆加 100GB 预留空间的预算。") }
     }
 
     $vmrun = Find-Executable "vmrun" @(
@@ -200,7 +201,7 @@ Write-Host ""
 Write-Host "2. 让 Kimi 先检查环境："
 Write-Host "   使用 autovmware-macos-vmx-clone 技能运行 doctor，只检查，不要克隆。"
 Write-Host ""
-Write-Host "3. 检查通过后，再让 Kimi 按默认配置生成 5 个克隆计划："
-Write-Host "   使用 autovmware-macos-vmx-clone 技能，按默认配置克隆 5 个镜像。先列计划，等我确认。"
+Write-Host "3. 检查通过后，再让 Kimi 按默认配置生成克隆计划，最多 100 个："
+Write-Host "   使用 autovmware-macos-vmx-clone 技能，按默认配置克隆 100 个镜像。先检查空间，额外预留 100GB，再列计划，等我确认。"
 Write-Host ""
 Write-Host "4. Kimi 必须先列出源 VMX、输出目录、数量、是否开机和每个目标路径，等确认后才能真实克隆。"

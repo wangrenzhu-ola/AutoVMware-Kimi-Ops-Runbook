@@ -26,7 +26,7 @@ def load_module(name: str):
 def valid_approval() -> dict:
     return {
         "source_vmx": r"F:\15.7.5\W1-OC-Mac-15.7.5\macOS 15\macOS 15.vmx",
-        "clone_count": 5,
+        "clone_count": 100,
         "target_root": r"F:\VMs",
         "name_prefix": "DEM009-Mac",
         "memory_gb": 8,
@@ -41,28 +41,24 @@ def valid_approval() -> dict:
     }
 
 
-def test_valid_approval_builds_five_target_paths() -> None:
+def test_valid_approval_builds_one_hundred_target_paths() -> None:
     schema = load_module("schema")
     validation = load_module("validation")
 
     approval = schema.Approval.from_dict(valid_approval())
     validation.validate_approval(approval)
 
-    assert approval.target_names() == [
-        "DEM009-Mac-1",
-        "DEM009-Mac-2",
-        "DEM009-Mac-3",
-        "DEM009-Mac-4",
-        "DEM009-Mac-5",
-    ]
-    assert approval.estimated_budget_gb() == 140
+    assert approval.target_names()[0] == "DEM009-Mac-1"
+    assert approval.target_names()[-1] == "DEM009-Mac-100"
+    assert len(approval.target_names()) == 100
+    assert approval.estimated_budget_gb() == 2100
 
 
-def test_rejects_clone_count_over_five() -> None:
+def test_rejects_clone_count_over_one_hundred() -> None:
     schema = load_module("schema")
     validation = load_module("validation")
     payload = valid_approval()
-    payload["clone_count"] = 6
+    payload["clone_count"] = 101
 
     approval = schema.Approval.from_dict(payload)
 
@@ -92,14 +88,14 @@ def test_generate_approval_from_default_config(tmp_path: Path, capsys) -> None:
     cli = load_module("cli")
     output = tmp_path / "approval.json"
 
-    exit_code = cli.main(["generate-approval", "5", "--output", str(output)])
+    exit_code = cli.main(["generate-approval", "100", "--output", str(output)])
     out = capsys.readouterr().out
 
     assert exit_code == 0
     payload = json.loads(out)
     approval = json.loads(output.read_text(encoding="utf-8"))
     assert payload["real_vm_action_executed"] is False
-    assert approval["clone_count"] == 5
+    assert approval["clone_count"] == 100
     assert approval["source_vmx"] == r"F:\15.7.5\W1-OC-Mac-15.7.5\macOS 15\macOS 15.vmx"
     assert approval["name_prefix"] == "dem009-batch"
 

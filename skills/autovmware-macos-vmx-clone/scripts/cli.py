@@ -190,7 +190,7 @@ def make_plan(approval_path: Path, *, free_gb: float | None = None) -> dict[str,
         "target_vmx_paths": approval.target_vmx_paths(),
         "hard_gates": [
             "审批文件已校验",
-            "克隆数量在 1 到 5 之间",
+            "克隆数量在 1 到 100 之间",
             "是否开机已明确",
             "没有引用 env 文件路径",
             "只生成计划，没有执行克隆",

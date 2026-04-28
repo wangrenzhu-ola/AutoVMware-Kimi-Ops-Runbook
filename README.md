@@ -1,6 +1,6 @@
 # AutoVMware Kimi 运维交付包
 
-这个仓库是给运维人员用的，不是开发仓库。运维不需要安装 git，也不需要理解代码结构。正常流程是：下载 Release 压缩包，解压，在 Windows 目标机运行 `install.ps1`，然后按提示让 Kimi 使用 `autovmware-macos-vmx-clone` 技能。
+这个交付包是给运维人员用的，不是开发仓库。运维不需要安装 git，不需要 clone 代码仓库，也不需要理解代码结构。默认流程只有三步：下载 Release 压缩包，解压，在 Windows 目标机运行 `install.ps1`。
 
 ## 先看效果
 
@@ -15,13 +15,15 @@ docs\reports\dem009\first-batch-clone-evidence.md
 运维要理解的重点：
 
 - 一条指令可以触发批量创建，不需要手工一台台点。
-- 当前安全默认每批 1 到 5 台，避免误操作一次性占满磁盘。
-- 想要更多机器，就按批次重复执行，例如 5 台、再 5 台、再 5 台。
+- 当前每批最多 100 台，但会先检查磁盘空间，并额外预留 100GB。
+- 想要更多机器，就按批次重复执行。每批都要先生成计划、检查空间、再确认。
 - 每批都会有参数、目标路径、空间、截图和错误记录，方便追责和排查。
 
 ## 下载和安装
 
-到本仓库的 Release 页面下载最新的 `AutoVMware-Kimi-Ops-v*.zip`。Release 标题和说明是中文，附件文件名保留英文是为了避免 Windows 或浏览器下载时出现乱码。下载后在 Windows 目标机解压，然后在解压目录运行：
+默认安装方式是下载 Release，不是 clone 仓库。
+
+到 Release 页面下载最新的 `AutoVMware-Kimi-Ops-v*.zip`。Release 标题和说明是中文，附件文件名保留英文是为了避免 Windows 或浏览器下载时出现乱码。下载后在 Windows 目标机解压，然后在解压目录运行：
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
@@ -98,10 +100,10 @@ kimi
 使用 autovmware-macos-vmx-clone 技能，先运行 doctor，只检查环境，不要克隆。
 ```
 
-检查通过后，如果要按默认配置克隆 5 个镜像：
+检查通过后，如果要按默认配置克隆 100 个镜像：
 
 ```text
-使用 autovmware-macos-vmx-clone 技能，按默认配置克隆 5 个镜像。先生成计划并把参数列出来，等我确认后再执行。
+使用 autovmware-macos-vmx-clone 技能，按默认配置克隆 100 个镜像。先检查空间，额外预留 100GB，再生成计划并把参数列出来，等我确认后再执行。
 ```
 
 如果当前会话已经明确在这个技能里，也可以只输入：
@@ -111,6 +113,8 @@ kimi
 ```
 
 Kimi 必须把这个数字理解成“克隆数量是 5”，先生成计划、列出参数，不能直接开始真实克隆。
+
+所有克隆相关操作都必须通过 Kimi 发起，不给运维直接手工跑脚本。原因是 Kimi 会先检查环境，发现路径、空间、VMware 工具或配置有问题时，可以继续追问运维并修正配置；手工跑命令容易跳过这些交互检查。
 
 ## 真实克隆前必须确认
 
@@ -131,7 +135,7 @@ Kimi 在执行真实克隆前，必须先列出这些内容：
 确认话术示例：
 
 ```text
-确认执行本次克隆：源 VMX 是 F:\15.7.5\W1-OC-Mac-15.7.5\macOS 15\macOS 15.vmx，数量 5 个，输出目录 F:\VMs，名称前缀 dem009-batch，不自动开机，完整克隆。
+确认执行本次克隆：源 VMX 是 F:\15.7.5\W1-OC-Mac-15.7.5\macOS 15\macOS 15.vmx，数量 100 个，输出目录 F:\VMs，名称前缀 dem009-batch，不自动开机，完整克隆，已确认空间预算包含 100GB 预留。
 ```
 
 没有这句明确确认，Kimi 不允许执行真实克隆。
@@ -141,7 +145,7 @@ Kimi 在执行真实克隆前，必须先列出这些内容：
 如果要换源镜像、输出目录或参数，可以让 Kimi 用自然语言帮忙改配置：
 
 ```text
-使用 autovmware-macos-vmx-clone 技能配置环境。源 VMX 改成 D:\Templates\macOS\macOS.vmx，输出目录改成 F:\VMs，默认一次克隆 5 个，内存 8GB，磁盘 64GB，不自动开机，NAT 网络。只改配置并运行 doctor，不要克隆。
+使用 autovmware-macos-vmx-clone 技能配置环境。源 VMX 改成 D:\Templates\macOS\macOS.vmx，输出目录改成 F:\VMs，默认一次最多克隆 100 个，内存 8GB，磁盘 64GB，不自动开机，NAT 网络。只改配置并运行 doctor，不要克隆。
 ```
 
 Kimi 应该只做三件事：
@@ -152,37 +156,10 @@ Kimi 应该只做三件事：
 
 doctor 没通过前，不允许克隆。
 
-## 手工命令
-
-一般情况下运维不需要手工运行下面命令。这些命令用于排查。
-
-生成 5 个克隆的审批文件：
-
-```powershell
-python skills\autovmware-macos-vmx-clone\scripts\cli.py generate-approval 5 --output config\autovmware-macos-vmx-clone.approval.json
-```
-
-检查审批文件：
-
-```powershell
-python skills\autovmware-macos-vmx-clone\scripts\cli.py validate-approval --approval-json config\autovmware-macos-vmx-clone.approval.json
-```
-
-生成克隆计划，不执行真实克隆：
-
-```powershell
-python skills\autovmware-macos-vmx-clone\scripts\cli.py plan-clone --approval-json config\autovmware-macos-vmx-clone.approval.json --format markdown
-```
-
-生成报告模板：
-
-```powershell
-python skills\autovmware-macos-vmx-clone\scripts\cli.py report-template --approval-json config\autovmware-macos-vmx-clone.approval.json --output reports\dem009\dem009_clone_phase_report.md
-```
-
 ## 禁止事项
 
 - 不读取或输出 `.env` 内容。
+- 运维不直接手工执行克隆脚本，必须让 Kimi 通过技能执行。
 - 不运行 `scripts\deploy\start_all.ps1`，除非负责人单独授权。
 - 不进入 DEM-009 U3。
 - 未经当前会话明确授权，不执行真实创建、启动、停止、删除、克隆或清理虚拟机。

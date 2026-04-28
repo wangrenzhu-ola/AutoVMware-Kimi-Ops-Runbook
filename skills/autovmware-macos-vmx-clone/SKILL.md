@@ -15,7 +15,7 @@ metadata:
 
 ```bash
 python scripts/cli.py doctor --format markdown
-python scripts/cli.py generate-approval 5 --output config/autovmware-macos-vmx-clone.approval.json
+python scripts/cli.py generate-approval 100 --output config/autovmware-macos-vmx-clone.approval.json
 python scripts/cli.py discover --drive F --format markdown
 python scripts/cli.py validate-approval --approval-json approval.json
 python scripts/cli.py plan-clone --approval-json approval.json --format markdown
@@ -36,7 +36,7 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 - 网络：`nat`
 - 保留策略：`keep`
 
-如果运维只输入一个数字，比如 `5`，就理解成“按默认配置克隆 5 个”。但仍然必须先生成审批文件和计划，列出完整参数，等人明确确认后才能执行真实克隆。
+如果运维只输入一个数字，比如 `100`，就理解成“按默认配置克隆 100 个”。但仍然必须先检查空间，额外预留 100GB，再生成审批文件和计划，列出完整参数，等人明确确认后才能执行真实克隆。
 
 ### 自然语言配置
 
@@ -60,7 +60,8 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 - 不运行测试、服务启动脚本或 `scripts\deploy\start_all.ps1`。
 - 没有人明确授权时，不创建、启动、停止、删除、快照、清理、克隆任何虚拟机。
 - discovery 和 doctor 只能只读。
-- `clone_count` 只能是 1 到 5。
+- `clone_count` 只能是 1 到 100。
+- 空间预算必须按克隆数量计算，并额外预留 100GB。
 - `power_on` 必须明确写出，默认不开机。
 - 命令返回非 0 或 `E_*` 错误时，立刻停止并汇报。
 - `doctor`、`discover`、`generate-approval`、`validate-approval`、`plan-clone`、`report-template` 都不能执行真实虚拟机动作。
@@ -72,7 +73,7 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 ```json
 {
   "source_vmx": "F:\\15.7.5\\W1-OC-Mac-15.7.5\\macOS 15\\macOS 15.vmx",
-  "clone_count": 5,
+  "clone_count": 100,
   "target_root": "F:\\VMs",
   "name_prefix": "dem009-batch",
   "memory_gb": 8,
@@ -90,7 +91,7 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 ### 标准流程
 
 1. 先运行 `doctor`。
-2. 如果运维输入 `5`，运行 `generate-approval 5`、`validate-approval`、`plan-clone`。
+2. 如果运维输入 `100`，运行 `generate-approval 100`、`validate-approval`、`plan-clone`。
 3. 把完整计划发给运维确认。
 4. 只有运维明确确认后，才调用项目内已经批准的克隆工具。
 5. 保存截图和报告。
@@ -105,7 +106,7 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 
 ## clone
 
-用于按数量生成默认克隆计划。比如运维输入 `5`，先生成审批文件、校验、生成计划并展示完整参数。必须等人确认后才能真实克隆。
+用于按数量生成默认克隆计划。比如运维输入 `100`，先检查空间预算、生成审批文件、校验、生成计划并展示完整参数。必须等人确认后才能真实克隆。
 
 ## discover
 
@@ -121,7 +122,7 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 
 ## generate-approval
 
-根据默认配置和克隆数量生成审批文件。比如输入 `5`，生成 5 个克隆的审批文件。不执行虚拟机动作。
+根据默认配置和克隆数量生成审批文件。比如输入 `100`，生成 100 个克隆的审批文件。不执行虚拟机动作。
 
 ## doctor
 

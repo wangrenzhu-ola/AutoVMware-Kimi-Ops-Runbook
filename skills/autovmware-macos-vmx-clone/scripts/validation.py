@@ -64,7 +64,7 @@ def validate_approval(approval: Approval, *, require_existing_source: bool = Fal
         raise GateError(ERROR_SOURCE_MISSING, f"源 VMX 不存在：{approval.source_vmx}")
 
     if not (MIN_CLONE_COUNT <= approval.clone_count <= MAX_CLONE_COUNT):
-        raise GateError(ERROR_INVALID_PARAM, "clone_count 必须是 1 到 5")
+        raise GateError(ERROR_INVALID_PARAM, "clone_count 必须是 1 到 100")
     if not approval.target_root or not WINDOWS_ABSOLUTE.match(approval.target_root):
         raise GateError(ERROR_INVALID_PARAM, "target_root 必须是 Windows 绝对路径，例如 F:\\VMs")
     if not SAFE_PREFIX.match(approval.name_prefix):

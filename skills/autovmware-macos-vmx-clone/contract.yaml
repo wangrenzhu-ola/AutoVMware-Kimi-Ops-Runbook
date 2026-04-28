@@ -26,7 +26,7 @@ commands:
       - name: count
         type: integer
         required: true
-        description: 克隆数量，必须是 1 到 5。
+        description: 克隆数量，必须是 1 到 100。
     outputs:
       type: object
       description: 审批文件、目标路径计划和人工确认提示。
@@ -80,7 +80,7 @@ commands:
       - name: count
         type: integer
         required: true
-        description: 克隆数量，必须是 1 到 5。
+        description: 克隆数量，必须是 1 到 100。
       - name: config
         type: string
         required: false
