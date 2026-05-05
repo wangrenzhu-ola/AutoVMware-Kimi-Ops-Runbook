@@ -72,9 +72,9 @@ function Invoke-PreflightDoctor {
     Write-Step "Running preflight checks"
     $failures = New-Object System.Collections.Generic.List[string]
 
-    $isWindows = $PSVersionTable.Platform -eq "Win32NT" -or $env:OS -eq "Windows_NT"
-    Write-Check "Windows" $isWindows "This installer must run on the Windows AutoVMware host."
-    if (-not $isWindows) { $failures.Add("Run this installer on the Windows target host.") }
+    $runningOnWindows = $PSVersionTable.Platform -eq "Win32NT" -or $env:OS -eq "Windows_NT"
+    Write-Check "Windows" $runningOnWindows "This installer must run on the Windows AutoVMware host."
+    if (-not $runningOnWindows) { $failures.Add("Run this installer on the Windows target host.") }
 
     $psOk = $PSVersionTable.PSVersion.Major -ge 5
     Write-Check "PowerShell version" $psOk $PSVersionTable.PSVersion.ToString()
