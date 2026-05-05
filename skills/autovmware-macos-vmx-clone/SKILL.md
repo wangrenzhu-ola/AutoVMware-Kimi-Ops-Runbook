@@ -20,6 +20,7 @@ python scripts/cli.py discover --drive F --format markdown
 python scripts/cli.py validate-approval --approval-json approval.json
 python scripts/cli.py plan-clone --approval-json approval.json --format markdown
 python scripts/cli.py report-template --approval-json approval.json --output reports/dem009/clone-report.md
+python scripts/cli.py ops-status --mock-token --format json
 ```
 
 ### 默认测试配置
@@ -99,6 +100,14 @@ python scripts/cli.py report-template --approval-json approval.json --output rep
 ### 报告证据
 
 阶段报告要包含源 VMX、克隆数量、目标路径、创建前后剩余空间、每个克隆机的验证结果、是否开机、截图路径、是否触发禁止动作、清理结果和重跑结果。
+
+### Kimi ops token
+
+- 运维安装完成后，先按仓库 `docs/ops/kimi-token-sop.md` 向 Infra/Hermes 申请 token。
+- 真实 token 只能放在本机环境变量或批准的本地 secret store，默认变量名 `KIMI_API_KEY`。
+- 禁止在 GitHub Issue、PR、CI 输出、日志、截图或聊天里打印真实 token。
+- CI 只能使用 `ops-status --mock-token` 和 `install.ps1 -MockMode -DummyKimiToken ...`，不得连接真实 VMware。
+- `ops-status` 只返回 `[redacted]` / `[missing]`，用于证明技能可用、token 已配置或 dummy token 已注入，并且不执行真实虚拟机动作。
 
 ## setup
 

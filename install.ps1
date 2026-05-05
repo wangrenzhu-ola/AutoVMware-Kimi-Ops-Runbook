@@ -1,6 +1,9 @@
 param(
     [string]$RepoRoot = "C:\Users\PC12\Documents\AutoVMware",
     [string]$SkillSource = "",
+    [string]$KimiTokenEnvVar = "KIMI_API_KEY",
+    [string]$DummyKimiToken = "",
+    [switch]$MockMode,
     [switch]$SkipKimiInstall,
     [switch]$Force
 )
@@ -62,15 +65,16 @@ function Get-FreeGb {
 function Invoke-PreflightDoctor {
     param(
         [string]$SkillSourcePath,
-        [string]$TargetRepoRoot
+        [string]$TargetRepoRoot,
+        [bool]$UseMockMode
     )
 
     Write-Step "Running preflight checks"
     $failures = New-Object System.Collections.Generic.List[string]
 
-    $isWindows = $PSVersionTable.Platform -eq "Win32NT" -or $env:OS -eq "Windows_NT"
-    Write-Check "Windows" $isWindows "This installer must run on the Windows AutoVMware host."
-    if (-not $isWindows) { $failures.Add("Run this installer on the Windows target host.") }
+    $runningOnWindows = $PSVersionTable.Platform -eq "Win32NT" -or $env:OS -eq "Windows_NT"
+    Write-Check "Windows" $runningOnWindows "This installer must run on the Windows AutoVMware host."
+    if (-not $runningOnWindows) { $failures.Add("Run this installer on the Windows target host.") }
 
     $psOk = $PSVersionTable.PSVersion.Major -ge 5
     Write-Check "PowerShell version" $psOk $PSVersionTable.PSVersion.ToString()
@@ -105,7 +109,11 @@ function Invoke-PreflightDoctor {
         }
     }
 
-    if ($null -ne $config) {
+    if ($UseMockMode) {
+        Write-Check "Mock mode" $true "Skipping real VMX, target drive, and VMware CLI checks for CI or dry-run validation."
+    }
+
+    if ($null -ne $config -and -not $UseMockMode) {
         $sourceVmxOk = Test-Path -LiteralPath $config.source_vmx
         Write-Check "Source VMX" $sourceVmxOk $config.source_vmx
         if (-not $sourceVmxOk) { $failures.Add("The configured source VMX does not exist. Check the source image path.") }
@@ -130,21 +138,23 @@ function Invoke-PreflightDoctor {
         }
     }
 
-    $vmrun = Find-Executable "vmrun" @(
-        "C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe",
-        "C:\Program Files\VMware\VMware Workstation\vmrun.exe"
-    )
-    $vmrunOk = -not [string]::IsNullOrWhiteSpace($vmrun)
-    Write-Check "VMware vmrun" $vmrunOk $vmrun
-    if (-not $vmrunOk) { $failures.Add("VMware Workstation vmrun.exe was not found.") }
+    if (-not $UseMockMode) {
+        $vmrun = Find-Executable "vmrun" @(
+            "C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe",
+            "C:\Program Files\VMware\VMware Workstation\vmrun.exe"
+        )
+        $vmrunOk = -not [string]::IsNullOrWhiteSpace($vmrun)
+        Write-Check "VMware vmrun" $vmrunOk $vmrun
+        if (-not $vmrunOk) { $failures.Add("VMware Workstation vmrun.exe was not found.") }
 
-    $vdisk = Find-Executable "vmware-vdiskmanager" @(
-        "C:\Program Files (x86)\VMware\VMware Workstation\vmware-vdiskmanager.exe",
-        "C:\Program Files\VMware\VMware Workstation\vmware-vdiskmanager.exe"
-    )
-    $vdiskOk = -not [string]::IsNullOrWhiteSpace($vdisk)
-    Write-Check "VMware disk tool" $vdiskOk $vdisk
-    if (-not $vdiskOk) { $failures.Add("VMware Workstation vmware-vdiskmanager.exe was not found.") }
+        $vdisk = Find-Executable "vmware-vdiskmanager" @(
+            "C:\Program Files (x86)\VMware\VMware Workstation\vmware-vdiskmanager.exe",
+            "C:\Program Files\VMware\VMware Workstation\vmware-vdiskmanager.exe"
+        )
+        $vdiskOk = -not [string]::IsNullOrWhiteSpace($vdisk)
+        Write-Check "VMware disk tool" $vdiskOk $vdisk
+        if (-not $vdiskOk) { $failures.Add("VMware Workstation vmware-vdiskmanager.exe was not found.") }
+    }
 
     if ($failures.Count -gt 0 -and -not $Force) {
         Write-Host ""
@@ -166,10 +176,12 @@ if ([string]::IsNullOrWhiteSpace($SkillSource)) {
     $SkillSource = Join-Path $PSScriptRoot "skills\autovmware-macos-vmx-clone"
 }
 
-Invoke-PreflightDoctor -SkillSourcePath $SkillSource -TargetRepoRoot $RepoRoot
+Invoke-PreflightDoctor -SkillSourcePath $SkillSource -TargetRepoRoot $RepoRoot -UseMockMode ([bool]$MockMode)
 
 Write-Step "Checking Kimi CLI"
-if (-not $SkipKimiInstall) {
+if ($MockMode) {
+    Write-Host "Mock mode enabled; not installing or calling real Kimi CLI."
+} elseif (-not $SkipKimiInstall) {
     if (-not (Test-Command "kimi")) {
         Write-Host "kimi command was not found. Installing Kimi CLI through the official installer..."
         Invoke-RestMethod https://code.kimi.com/install.ps1 | Invoke-Expression
@@ -178,8 +190,10 @@ if (-not $SkipKimiInstall) {
     }
 }
 
-if (Test-Command "kimi") {
+if ((-not $MockMode) -and (Test-Command "kimi")) {
     kimi --version
+} elseif ($MockMode) {
+    Write-Host "Kimi CLI version check skipped in mock mode."
 } else {
     Write-Warning "Kimi CLI was not found. Re-run without -SkipKimiInstall or install Kimi CLI manually."
 }
@@ -199,6 +213,29 @@ if (-not (Test-Path -LiteralPath $defaultConfigTarget)) {
     Write-Host "Config already exists; leaving it unchanged: $defaultConfigTarget"
 }
 
+$tokenExamplePath = Join-Path $RepoRoot "config\kimi-ops.env.example"
+$tokenExample = @(
+    "# Copy to a local secret store or machine-level environment setup. Do not commit real values.",
+    ("{0}=replace-with-issued-token" -f $KimiTokenEnvVar),
+    "AUTOVMWARE_KIMI_TOKEN_MODE=env"
+)
+$tokenExample | Set-Content -LiteralPath $tokenExamplePath -Encoding ASCII
+Write-Host "Created token configuration example: $tokenExamplePath"
+
+$tokenStatusPath = Join-Path $RepoRoot "config\kimi-token-status.json"
+$tokenPresent = (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($KimiTokenEnvVar))) -or (-not [string]::IsNullOrWhiteSpace($DummyKimiToken))
+$tokenStatus = [ordered]@{
+    ok = $true
+    token_env_var = $KimiTokenEnvVar
+    token_present = $tokenPresent
+    token_value = $(if ($tokenPresent) { "[redacted]" } else { "[missing]" })
+    token_mode = $(if ($MockMode) { "mock-dummy" } else { "env" })
+    mock_mode = [bool]$MockMode
+    real_vm_action_executed = $false
+}
+$tokenStatus | ConvertTo-Json | Set-Content -LiteralPath $tokenStatusPath -Encoding ASCII
+Write-Host "Created redacted token status: $tokenStatusPath"
+
 Write-Step "Next steps"
 Write-Host "1. Enter the AutoVMware directory and start Kimi:"
 Write-Host "   cd $RepoRoot"
@@ -210,4 +247,6 @@ Write-Host ""
 Write-Host "3. After doctor passes, ask Kimi to generate a default clone plan, up to 100 clones:"
 Write-Host "   Use the autovmware-macos-vmx-clone skill to clone 100 images with the default config. Check space with 100GB reserved, list the plan, then wait for my confirmation."
 Write-Host ""
-Write-Host "4. Kimi must list the source VMX, output directory, count, power-on policy, and every target path before any real clone."
+Write-Host "4. Before using Kimi, request a token from Infra/Hermes, set it in the machine environment variable shown in config\\kimi-ops.env.example, and never paste the real token into GitHub, logs, or chat."
+Write-Host ""
+Write-Host "5. Kimi must list the source VMX, output directory, count, power-on policy, and every target path before any real clone."

@@ -1,6 +1,9 @@
 param(
     [string]$RepoRoot = "C:\Users\PC12\Documents\AutoVMware",
     [string]$SkillSource = "",
+    [string]$KimiTokenEnvVar = "KIMI_API_KEY",
+    [string]$DummyKimiToken = "",
+    [switch]$MockMode,
     [switch]$SkipKimiInstall,
     [switch]$Force
 )
@@ -10,4 +13,4 @@ if (-not (Test-Path -LiteralPath $rootInstall)) {
     throw "在交付包根目录没有找到 install.ps1：$rootInstall"
 }
 
-& $rootInstall -RepoRoot $RepoRoot -SkillSource $SkillSource -SkipKimiInstall:$SkipKimiInstall -Force:$Force
+& $rootInstall -RepoRoot $RepoRoot -SkillSource $SkillSource -KimiTokenEnvVar $KimiTokenEnvVar -DummyKimiToken $DummyKimiToken -MockMode:$MockMode -SkipKimiInstall:$SkipKimiInstall -Force:$Force

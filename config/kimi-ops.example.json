@@ -1,0 +1,12 @@
+{
+  "token_env_var": "KIMI_API_KEY",
+  "token_storage": "Windows machine/user environment variable or approved local secret store",
+  "token_value": "replace-with-issued-token-do-not-commit-real-value",
+  "token_mode": "env",
+  "mock_token_for_ci": "dummy-ci-token-not-real",
+  "notes": [
+    "Never commit a real token.",
+    "Never paste a real token into GitHub Issues, logs, CI output, or chat.",
+    "CI must use mock/dummy token mode only."
+  ]
+}
