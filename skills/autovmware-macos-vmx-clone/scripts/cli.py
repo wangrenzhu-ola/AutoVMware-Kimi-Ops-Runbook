@@ -8,7 +8,7 @@ import json
 import os
 import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -130,18 +130,27 @@ def doctor_result(config_path: Path | None = None) -> dict[str, Any]:
     target_root = Path(approval.target_root)
     root = Path(approval.target_root[:3])
     tools = find_vmware_tools()
+    source_exists = source.exists() if os.name == "nt" else None
+    target_exists = target_root.exists() if os.name == "nt" else None
+    target_free_gb = disk_free_gb(root)
     checks = {
         "Python 版本": sys.version.split()[0],
         "运行平台": sys.platform,
         "是否 Windows": os.name == "nt",
         "配置文件": str(config_path or DEFAULT_CONFIG),
         "是否已配置源 VMX": bool(approval.source_vmx),
-        "源 VMX 是否存在": source.exists() if os.name == "nt" else None,
-        "输出目录是否存在": target_root.exists() if os.name == "nt" else None,
-        "目标盘剩余空间 GB": disk_free_gb(root),
+        "源 VMX 是否存在": source_exists,
+        "输出目录是否存在": target_exists,
+        "目标盘剩余空间 GB": target_free_gb,
         "vmrun 路径": tools["vmrun"],
         "vmware-vdiskmanager 路径": tools["vmware-vdiskmanager"],
         "Kimi CLI 路径": shutil.which("kimi"),
+        "source_vmx_exists": source_exists,
+        "target_root_exists": target_exists,
+        "target_free_gb": target_free_gb,
+        "vmrun": tools["vmrun"],
+        "vmware_vdiskmanager": tools["vmware-vdiskmanager"],
+        "kimi_cli": shutil.which("kimi"),
         "警告": warnings,
     }
     blockers: list[str] = []
@@ -298,6 +307,29 @@ def command_doctor(args: argparse.Namespace) -> int:
     return 0 if result["ok"] else 2
 
 
+def command_ops_status(args: argparse.Namespace) -> int:
+    token_env_var = args.token_env_var
+    token_present = bool(os.environ.get(token_env_var)) or args.mock_token
+    result = {
+        "ok": True,
+        "action": "Kimi ops status check",
+        "real_vm_action_executed": False,
+        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "skill_available": Path(__file__).resolve().parent.parent.joinpath("SKILL.md").exists(),
+        "config_available": (Path(args.config) if args.config else DEFAULT_CONFIG).exists(),
+        "token_env_var": token_env_var,
+        "token_present": token_present,
+        "token_value": "[redacted]" if token_present else "[missing]",
+        "token_mode": "mock-dummy" if args.mock_token else "env",
+        "mock_mode": args.mock_token,
+        "vmware_touched": False,
+        "safe_for_ci": args.mock_token,
+        "forbidden_actions": "未触发",
+    }
+    output_result(result, args.format)
+    return 0 if result["ok"] else 2
+
+
 def command_report_template(args: argparse.Namespace) -> int:
     plan = make_plan(Path(args.approval_json))
     output_path = Path(args.output)
@@ -359,6 +391,13 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--config")
     doctor.add_argument("--format", choices=("json", "markdown"), default="markdown")
     doctor.set_defaults(func=command_doctor)
+
+    status = subparsers.add_parser("ops-status")
+    status.add_argument("--config")
+    status.add_argument("--token-env-var", default="KIMI_API_KEY")
+    status.add_argument("--mock-token", action="store_true")
+    status.add_argument("--format", choices=("json", "markdown"), default="json")
+    status.set_defaults(func=command_ops_status)
 
     report = subparsers.add_parser("report-template")
     report.add_argument("--approval-json", required=True)

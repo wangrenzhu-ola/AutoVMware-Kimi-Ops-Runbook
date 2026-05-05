@@ -1,0 +1,58 @@
+name: Windows Kimi Ops Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  windows-kimi-ops-smoke:
+    name: Windows install and Kimi ops smoke
+    runs-on: windows-latest
+    env:
+      AUTOVMWARE_CI_MOCK: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+
+      - name: Run Python tests
+        shell: pwsh
+        run: python -m pytest -q
+
+      - name: Run installer in mock token mode
+        shell: pwsh
+        run: |
+          Remove-Item Env:\KIMI_API_KEY -ErrorAction SilentlyContinue
+          $target = Join-Path $env:RUNNER_TEMP "AutoVMware"
+          .\install.ps1 -RepoRoot $target -MockMode -SkipKimiInstall -DummyKimiToken "dummy-ci-token-not-real"
+          if (-not (Test-Path (Join-Path $target "config\kimi-ops.env.example"))) { throw "missing token env example" }
+          if (-not (Test-Path (Join-Path $target "config\kimi-token-status.json"))) { throw "missing token status" }
+          $status = Get-Content (Join-Path $target "config\kimi-token-status.json") -Raw | ConvertFrom-Json
+          if (-not $status.token_present) { throw "dummy token was not recognized" }
+          if ($status.token_value -ne "[redacted]") { throw "token value was not redacted" }
+          if ($status.real_vm_action_executed) { throw "installer reported a real VM action" }
+
+      - name: Query skill ops status with dummy token
+        shell: pwsh
+        run: |
+          $json = python .\skills\autovmware-macos-vmx-clone\scripts\cli.py ops-status --mock-token --format json
+          $json
+          $status = $json | ConvertFrom-Json
+          if (-not $status.skill_available) { throw "skill is not available" }
+          if (-not $status.token_present) { throw "dummy token was not recognized by skill" }
+          if ($status.token_value -ne "[redacted]") { throw "skill leaked token value" }
+          if ($status.vmware_touched) { throw "status query touched VMware" }
+          if ($status.real_vm_action_executed) { throw "status query executed a real VM action" }

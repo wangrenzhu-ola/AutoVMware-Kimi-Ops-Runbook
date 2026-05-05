@@ -94,6 +94,29 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 .\install.ps1 -Force
 ```
 
+## Kimi token 申请和安全配置
+
+安装完成后，运维必须先向 Infra/Hermes 申请 Kimi ops token，不能把 token 写进仓库、Issue、PR、CI 日志或截图。完整 SOP 在 `docs\ops\kimi-token-sop.md`，配置模板在 `config\kimi-ops.example.json`，安装脚本也会在目标机生成 `config\kimi-ops.env.example` 和只含 `[redacted]` / `[missing]` 的 `config\kimi-token-status.json`。
+
+申请时提供机器标识、环境、用途、负责人、预计有效期、安装目录和是否真实 VMware 环境；不要附带任何现有 token。Infra/Hermes 通过批准的私密通道发放最小权限 token。运维在 Windows 目标机把 token 配到用户级环境变量，默认变量名为 `KIMI_API_KEY`：
+
+```powershell
+[Environment]::SetEnvironmentVariable("KIMI_API_KEY", "<issued-token>", "User")
+```
+
+验证 token 和技能是否可用，但不触碰 VMware：
+
+```powershell
+python .\skills\autovmware-macos-vmx-clone\scripts\cli.py ops-status --format json
+```
+
+CI 和本地 dry-run 只能使用 dummy token / mock mode：
+
+```powershell
+.\install.ps1 -RepoRoot "$env:TEMP\AutoVMware" -MockMode -SkipKimiInstall -DummyKimiToken "dummy-ci-token-not-real"
+python .\skills\autovmware-macos-vmx-clone\scripts\cli.py ops-status --mock-token --format json
+```
+
 ## 默认测试配置
 
 交付包内置当前测试环境参数：

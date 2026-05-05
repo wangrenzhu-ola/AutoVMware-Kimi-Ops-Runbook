@@ -111,3 +111,20 @@ def test_doctor_is_read_only_and_reports_non_windows_blocker(capsys) -> None:
     if sys.platform != "win32":
         assert exit_code == 2
         assert "不是 Windows" in payload["blockers"][0]
+
+
+def test_ops_status_redacts_dummy_token_and_is_vmware_safe(capsys) -> None:
+    cli = load_module("cli")
+
+    exit_code = cli.main(["ops-status", "--mock-token", "--format", "json"])
+    out = capsys.readouterr().out
+
+    payload = json.loads(out)
+    assert exit_code == 0
+    assert payload["skill_available"] is True
+    assert payload["token_present"] is True
+    assert payload["token_value"] == "[redacted]"
+    assert payload["token_mode"] == "mock-dummy"
+    assert payload["vmware_touched"] is False
+    assert payload["real_vm_action_executed"] is False
+    assert "dummy-ci-token-not-real" not in out
