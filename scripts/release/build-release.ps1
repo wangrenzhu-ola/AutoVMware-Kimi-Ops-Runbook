@@ -31,6 +31,7 @@ $items = @(
     "install.ps1",
     "pyproject.toml",
     "uv.lock",
+    "config",
     "docs",
     "scripts",
     "skills",
