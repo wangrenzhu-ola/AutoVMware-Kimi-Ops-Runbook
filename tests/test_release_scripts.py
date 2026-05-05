@@ -19,6 +19,11 @@ def test_release_builder_encodes_powershell_scripts_with_utf8_bom() -> None:
 
     assert "UTF8Encoding($true)" in content
     assert 'Filter "*.ps1"' in content
+    assert '"config"' in content
+
+
+def test_release_package_includes_kimi_ops_config_template() -> None:
+    assert (REPO_ROOT / "config" / "kimi-ops.example.json").exists()
 
 
 def test_install_script_supports_mock_token_mode_without_real_vmware() -> None:
