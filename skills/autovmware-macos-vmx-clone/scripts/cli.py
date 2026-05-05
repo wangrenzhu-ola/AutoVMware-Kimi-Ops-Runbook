@@ -209,7 +209,7 @@ def make_plan(approval_path: Path, *, free_gb: float | None = None) -> dict[str,
 
 def output_result(result: dict[str, Any], fmt: str) -> None:
     if fmt == "json":
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=True, indent=2))
         return
     print(markdown_result(result))
 
