@@ -1,0 +1,66 @@
+name: Linux Brain CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  linux-brain-ci:
+    name: Linux tests and Podman brain artifact validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+
+      - name: Run Python tests
+        run: python -m pytest -q tests/test_hermes_brain_deployment.py tests/test_autovmware_macos_clone_skill.py tests/test_release_scripts.py
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          podman --version
+
+      - name: Validate Containerfile syntax and build context
+        run: |
+          test -f deploy/hermes-brain/Containerfile
+          test -f deploy/hermes-brain/start.sh
+          test -f deploy/hermes-brain/brain_api.py
+          test -f deploy/hermes-brain/env.example
+          podman build --help >/dev/null
+
+      - name: Static deploy script smoke
+        run: |
+          bash -n scripts/deploy/aliyun-podman-hermes-brain.sh
+          bash -n deploy/hermes-brain/start.sh
+
+      - name: Brain API local smoke
+        run: |
+          tmpdir=$(mktemp -d)
+          export BRAIN_API_HOST=127.0.0.1
+          export BRAIN_API_PORT=3104
+          export BRAIN_STATE_PATH="$tmpdir/workers.json"
+          python deploy/hermes-brain/brain_api.py >"$tmpdir/api.log" 2>"$tmpdir/api.err" &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3104/health; then break; fi
+            sleep 0.5
+          done
+          curl -fsS -X POST http://127.0.0.1:3104/workers/heartbeat \
+            -H 'Content-Type: application/json' \
+            -d '{"machine_id":"ci-machine","hostname":"ci","worker_version":"0.1.0","free_space_gb":123,"kimi_token_present":false,"current_state":"need_token","last_error":"ci"}'
+          curl -fsS http://127.0.0.1:3104/workers | grep ci-machine
