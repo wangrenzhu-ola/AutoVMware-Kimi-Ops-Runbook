@@ -3,6 +3,8 @@ set -euo pipefail
 
 APP_NAME="${APP_NAME:-autovmware-hermes-brain}"
 APP_DIR="${APP_DIR:-/opt/autovmware-hermes-brain}"
+# Persistent Podman bind-mount data must live on the ECS data disk.
+DATA_DIR="${DATA_DIR:-/data/autovmware-hermes-brain}"
 IMAGE_TAG="${IMAGE_TAG:-localhost/${APP_NAME}:latest}"
 BRAIN_PORT="${BRAIN_PORT:-3104}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/brain.env}"
@@ -24,7 +26,7 @@ install_podman() {
 }
 
 prepare_dirs() {
-  install -d -m 0750 "${APP_DIR}" "${APP_DIR}/state" "${APP_DIR}/logs" "${APP_DIR}/hermes"
+  install -d -m 0750 "${APP_DIR}" "${DATA_DIR}" "${DATA_DIR}/state" "${DATA_DIR}/logs" "${DATA_DIR}/hermes"
   if [[ ! -f "${ENV_FILE}" ]]; then
     install -m 0600 "${REPO_DIR}/deploy/hermes-brain/env.example" "${ENV_FILE}"
     echo "Created ${ENV_FILE}; fill real Feishu/model credentials before starting." >&2
@@ -52,9 +54,9 @@ ExecStartPre=-/usr/bin/podman rm -f ${APP_NAME}
 ExecStart=/usr/bin/podman run --name ${APP_NAME} --replace \\
   --env-file ${ENV_FILE} \\
   -p ${BRAIN_PORT}:${BRAIN_PORT} \\
-  -v ${APP_DIR}/hermes:/opt/autovmware-hermes-brain/hermes:Z \\
-  -v ${APP_DIR}/state:/opt/autovmware-hermes-brain/state:Z \\
-  -v ${APP_DIR}/logs:/opt/autovmware-hermes-brain/logs:Z \\
+  -v ${DATA_DIR}/hermes:/opt/autovmware-hermes-brain/hermes:Z \\
+  -v ${DATA_DIR}/state:/opt/autovmware-hermes-brain/state:Z \\
+  -v ${DATA_DIR}/logs:/opt/autovmware-hermes-brain/logs:Z \\
   ${IMAGE_TAG}
 ExecStop=/usr/bin/podman stop -t 30 ${APP_NAME}
 

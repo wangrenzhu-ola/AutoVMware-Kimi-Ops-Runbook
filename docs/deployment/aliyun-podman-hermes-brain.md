@@ -7,7 +7,7 @@
 - OS: Ubuntu 24.04 LTS
 - CPU: 4 cores
 - Memory: 14Gi total，约 12Gi available
-- Disk: root 49G，约 31G free
+- Disk: root 49G，约 31G free；`/data` 独立 196G 数据盘
 - Feishu OpenAPI egress: OK
 - Podman: apt 可安装，当前非预装
 - Suggested Brain API port: `3104`
@@ -20,6 +20,7 @@ Do not use an existing host Hermes process as acceptance evidence. Host Hermes m
 
 - `podman ps` contains `autovmware-hermes-brain`.
 - `systemctl status autovmware-hermes-brain.service` is active.
+- Podman persistent bind mounts use `/data/autovmware-hermes-brain/{hermes,state,logs}` on the ECS data disk.
 - `curl http://127.0.0.1:3104/health` returns `ok=true`.
 - A worker heartbeat can be posted and then read from `GET /workers`.
 - Feishu bot sends/receives through the container runtime.
@@ -52,6 +53,16 @@ On first deploy, the script creates:
 ```
 
 Fill real Feishu/model credentials in that file on ECS only. Do not commit it and do not print it.
+
+Persistent Podman bind-mount data is stored on the ECS data disk:
+
+```text
+/data/autovmware-hermes-brain/hermes
+/data/autovmware-hermes-brain/state
+/data/autovmware-hermes-brain/logs
+```
+
+Do not move these data volumes back under `/opt`; `/opt` is for config/env and service metadata only.
 
 ## Status check
 
