@@ -1,7 +1,7 @@
 param(
     [string]$Version = "latest",
     [string]$WorkDir = "",
-    [string]$RepoRoot = "C:\Users\PC12\Documents\AutoVMware",
+    [string]$RepoRoot = "",
     [string]$KimiTokenEnvVar = "KIMI_API_KEY",
     [string]$DummyKimiToken = "",
     [switch]$MockMode,
@@ -62,6 +62,10 @@ if ([string]::IsNullOrWhiteSpace($WorkDir)) {
     $WorkDir = Join-Path $env:TEMP "AutoVMware-Kimi-Ops-Installer"
 }
 
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $RepoRoot = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "AutoVMware"
+}
+
 Write-Step "Resolving AutoVMware Kimi Ops release"
 $release = Get-ReleaseInfo -RequestedVersion $Version
 $asset = Get-ReleaseZipAsset -Release $release
@@ -89,9 +93,16 @@ if ($null -eq $installPath) {
 }
 
 Write-Host ("Installer: {0}" -f $installPath.FullName)
+$packageRoot = Split-Path -Parent $installPath.FullName
+$skillSource = Join-Path $packageRoot "skills\autovmware-macos-vmx-clone"
+if (-not (Test-Path -LiteralPath $skillSource)) {
+    throw "Downloaded package does not contain skill directory: $skillSource"
+}
+Write-Host ("Skill source: {0}" -f $skillSource)
 
 $installArgs = @(
     "-RepoRoot", $RepoRoot,
+    "-SkillSource", $skillSource,
     "-KimiTokenEnvVar", $KimiTokenEnvVar,
     "-DummyKimiToken", $DummyKimiToken
 )

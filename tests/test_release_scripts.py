@@ -83,6 +83,9 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert "Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath" in content
     assert "Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force" in content
     assert 'Get-ChildItem -LiteralPath $extractDir -Recurse -File -Filter "install.ps1"' in content
+    assert '[Environment]::GetFolderPath("MyDocuments")' in content
+    assert '$skillSource = Join-Path $packageRoot "skills\\autovmware-macos-vmx-clone"' in content
+    assert '"-SkillSource", $skillSource' in content
     assert "& $installPath.FullName @installArgs" in content
 
 
