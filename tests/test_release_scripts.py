@@ -22,6 +22,7 @@ def test_release_builder_encodes_powershell_scripts_with_utf8_bom() -> None:
 
     assert "UTF8Encoding($true)" in content
     assert 'Filter "*.ps1"' in content
+    assert '"install-latest.ps1"' in content
     assert '"config"' in content
 
 
@@ -70,6 +71,19 @@ def test_install_script_installs_and_verifies_kimi_cli() -> None:
     assert 'Join-Path $userLocalBin "kimi.exe"' in content
     assert "& $kimiPath --version" in content
     assert "https://code.kimi.com/install.ps1" not in content
+
+
+def test_install_latest_downloads_and_runs_release_installer() -> None:
+    content = (REPO_ROOT / "install-latest.ps1").read_text(encoding="utf-8")
+
+    assert content.isascii()
+    assert "releases/latest" in content
+    assert "releases/tags/$tag" in content
+    assert "AutoVMware-Kimi-Ops-v*.zip" in content
+    assert "Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath" in content
+    assert "Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force" in content
+    assert 'Get-ChildItem -LiteralPath $extractDir -Recurse -File -Filter "install.ps1"' in content
+    assert "& $installPath.FullName @installArgs" in content
 
 
 def test_windows_ci_exercises_mock_install_and_ops_status() -> None:

@@ -50,7 +50,21 @@
 
 ## 下载和安装
 
-默认安装方式是下载 Release，不是 clone 仓库。
+默认安装方式是一行 PowerShell 命令自动下载最新 Release，不需要 clone 仓库，也不需要手动下载解压：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/wangrenzhu-ola/AutoVMware-Kimi-Ops-Runbook/main/install-latest.ps1 | iex"
+```
+
+这条命令会自动查询 GitHub 最新 Release，下载 `AutoVMware-Kimi-Ops-v*.zip`，解压到临时目录，然后运行包里的 `install.ps1`。
+
+如果要安装指定版本：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/wangrenzhu-ola/AutoVMware-Kimi-Ops-Runbook/main/install-latest.ps1))) -Version v0.1.12"
+```
+
+如果 GitHub raw 访问受限，也可以手动下载 Release。
 
 到 Release 页面下载最新的 `AutoVMware-Kimi-Ops-v*.zip`。Release 标题和说明是中文，附件文件名保留英文是为了避免 Windows 或浏览器下载时出现乱码。下载后在 Windows 目标机解压，然后在解压目录运行：
 

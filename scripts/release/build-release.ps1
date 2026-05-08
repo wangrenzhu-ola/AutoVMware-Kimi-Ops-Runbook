@@ -29,6 +29,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot $OutputDir) | Out
 $items = @(
     "README.md",
     "install.ps1",
+    "install-latest.ps1",
     "pyproject.toml",
     "uv.lock",
     "config",
