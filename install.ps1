@@ -69,6 +69,37 @@ function Test-RunningOnWindows {
     return $env:OS -eq "Windows_NT"
 }
 
+function Write-KimiOperatorPrompt {
+    param([string]$TargetRepoRoot)
+
+    Write-Step "Kimi operator prompt"
+    Write-Host "Open Kimi CLI from the AutoVMware directory:"
+    Write-Host "   cd $TargetRepoRoot"
+    Write-Host "   kimi"
+    Write-Host ""
+    Write-Host "Paste this prompt into Kimi:"
+    Write-Host "----- BEGIN KIMI PROMPT -----"
+    Write-Host "You are the AutoVMware macOS VMX clone operator on this Windows host."
+    Write-Host "Work in this directory:"
+    Write-Host $TargetRepoRoot
+    Write-Host ""
+    Write-Host "Goal:"
+    Write-Host "Help operations find the source macOS VMware .vmx image, choose a clone output directory, ask how many clones to create, then generate a safe clone plan."
+    Write-Host ""
+    Write-Host "Rules:"
+    Write-Host "1. Do not read or print .env files or secrets."
+    Write-Host "2. Do not create, start, stop, delete, snapshot, clean, or clone any VM until the operator explicitly confirms the final plan."
+    Write-Host "3. First run only read-only discovery and doctor commands."
+    Write-Host "4. Search available file-system drives for likely macOS or Hackintosh .vmx files. Prefer the built-in discover command, for example:"
+    Write-Host "   python .\skills\autovmware-macos-vmx-clone\scripts\cli.py discover --drive D --format markdown"
+    Write-Host "5. Show the operator the candidate .vmx paths, target drive free space, and a recommended output directory."
+    Write-Host "6. Ask the operator to choose the source .vmx and clone count, from 1 to 100."
+    Write-Host "7. After the operator chooses, update config\autovmware-macos-vmx-clone.json, run doctor, generate an approval JSON, validate it, and run plan-clone."
+    Write-Host "8. Print the complete plan: source .vmx, clone count, output directory, memory, disk, clone mode, power-on policy, and every target .vmx path."
+    Write-Host "9. Stop and wait for explicit confirmation before any real clone action."
+    Write-Host "----- END KIMI PROMPT -----"
+}
+
 function Invoke-PreflightDoctor {
     param(
         [string]$SkillSourcePath,
@@ -78,6 +109,7 @@ function Invoke-PreflightDoctor {
 
     Write-Step "Running preflight checks"
     $failures = New-Object System.Collections.Generic.List[string]
+    $readinessWarnings = New-Object System.Collections.Generic.List[string]
 
     $runningOnWindows = Test-RunningOnWindows
     Write-Check "Windows" $runningOnWindows "This installer must run on the Windows AutoVMware host."
@@ -123,19 +155,19 @@ function Invoke-PreflightDoctor {
     if ($null -ne $config -and -not $UseMockMode) {
         $sourceVmxOk = Test-Path -LiteralPath $config.source_vmx
         Write-Check "Source VMX" $sourceVmxOk $config.source_vmx
-        if (-not $sourceVmxOk) { $failures.Add("The configured source VMX does not exist. Check the source image path.") }
+        if (-not $sourceVmxOk) { $readinessWarnings.Add("The default source VMX does not exist. Kimi should discover the real source image on this host.") }
 
         $targetRoot = [string]$config.target_root
         $targetDrive = [System.IO.Path]::GetPathRoot($targetRoot)
         $targetDriveOk = -not [string]::IsNullOrWhiteSpace($targetDrive) -and (Test-Path -LiteralPath $targetDrive)
         Write-Check "Target drive" $targetDriveOk $targetDrive
-        if (-not $targetDriveOk) { $failures.Add("The clone output drive does not exist.") }
+        if (-not $targetDriveOk) { $readinessWarnings.Add("The default clone output drive does not exist. Kimi should ask the operator for the real output drive.") }
 
         $freeGb = Get-FreeGb $targetRoot
         $minimumRequiredGb = ([int]$config.disk_gb) + 100
         $spaceOk = $null -ne $freeGb -and $freeGb -ge $minimumRequiredGb
         Write-Check "Target free space" $spaceOk ("free={0}GB, minimum={1}GB for install acceptance: one clone plus 100GB reserve" -f $freeGb, $minimumRequiredGb)
-        if (-not $spaceOk) { $failures.Add("Target drive free space is below the minimum budget for one clone plus 100GB reserve.") }
+        if (-not $spaceOk) { $readinessWarnings.Add("The default clone output path does not have a verified space budget. Kimi must re-check space after the operator chooses the output directory and clone count.") }
 
         if ($null -ne $freeGb) {
             $maxCloneCount = [math]::Floor(($freeGb - 100) / [int]$config.disk_gb)
@@ -152,7 +184,7 @@ function Invoke-PreflightDoctor {
         )
         $vmrunOk = -not [string]::IsNullOrWhiteSpace($vmrun)
         Write-Check "VMware vmrun" $vmrunOk $vmrun
-        if (-not $vmrunOk) { $failures.Add("VMware Workstation vmrun.exe was not found.") }
+        if (-not $vmrunOk) { $readinessWarnings.Add("VMware Workstation vmrun.exe was not found. Kimi should report this before any real clone action.") }
 
         $vdisk = Find-Executable "vmware-vdiskmanager" @(
             "C:\Program Files (x86)\VMware\VMware Workstation\vmware-vdiskmanager.exe",
@@ -160,17 +192,25 @@ function Invoke-PreflightDoctor {
         )
         $vdiskOk = -not [string]::IsNullOrWhiteSpace($vdisk)
         Write-Check "VMware disk tool" $vdiskOk $vdisk
-        if (-not $vdiskOk) { $failures.Add("VMware Workstation vmware-vdiskmanager.exe was not found.") }
+        if (-not $vdiskOk) { $readinessWarnings.Add("VMware Workstation vmware-vdiskmanager.exe was not found. Kimi should report this before any real clone action.") }
+    }
+
+    if ($readinessWarnings.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Install can continue. Kimi must resolve these readiness items before cloning:" -ForegroundColor Yellow
+        foreach ($warning in $readinessWarnings) {
+            Write-Host "- $warning" -ForegroundColor Yellow
+        }
     }
 
     if ($failures.Count -gt 0 -and -not $Force) {
         Write-Host ""
-        Write-Host "Preflight failed. The installer did not install Kimi or write config." -ForegroundColor Red
+        Write-Host "Preflight failed because the release package or base runtime is not usable." -ForegroundColor Red
         foreach ($failure in $failures) {
             Write-Host "- $failure" -ForegroundColor Red
         }
         Write-Host ""
-        Write-Host "Fix the issues above and run install.ps1 again. Use -Force only when the owner explicitly accepts these blockers." -ForegroundColor Yellow
+        Write-Host "Fix the issues above and run install.ps1 again." -ForegroundColor Yellow
         exit 2
     }
 
@@ -248,12 +288,12 @@ Write-Host "1. Enter the AutoVMware directory and start Kimi:"
 Write-Host "   cd $RepoRoot"
 Write-Host "   kimi"
 Write-Host ""
-Write-Host "2. Ask Kimi to check the environment first:"
-Write-Host "   Use the autovmware-macos-vmx-clone skill to run doctor only. Do not clone."
+Write-Host "2. Paste the operator prompt below into Kimi. Kimi should discover the real source VMX and ask how many clones to create."
 Write-Host ""
-Write-Host "3. After doctor passes, ask Kimi to generate a default clone plan, up to 100 clones:"
-Write-Host "   Use the autovmware-macos-vmx-clone skill to clone 100 images with the default config. Check space with 100GB reserved, list the plan, then wait for my confirmation."
+Write-Host "3. Kimi must generate and show a plan first, then wait for explicit confirmation before real clone."
 Write-Host ""
 Write-Host "4. Before using Kimi, request a token from Infra/Hermes, set it in the machine environment variable shown in config\\kimi-ops.env.example, and never paste the real token into GitHub, logs, or chat."
 Write-Host ""
 Write-Host "5. Kimi must list the source VMX, output directory, count, power-on policy, and every target path before any real clone."
+
+Write-KimiOperatorPrompt -TargetRepoRoot $RepoRoot

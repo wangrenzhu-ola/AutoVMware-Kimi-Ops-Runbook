@@ -38,6 +38,27 @@ def test_install_script_supports_mock_token_mode_without_real_vmware() -> None:
     assert "[redacted]" in content
 
 
+def test_install_script_continues_when_default_clone_paths_need_discovery() -> None:
+    content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
+
+    assert "$readinessWarnings = New-Object System.Collections.Generic.List[string]" in content
+    assert 'Kimi should discover the real source image on this host.' in content
+    assert 'Kimi should ask the operator for the real output drive.' in content
+    assert 'The configured source VMX does not exist. Check the source image path.' not in content
+    assert 'The clone output drive does not exist.' not in content
+    assert 'Target drive free space is below the minimum budget' not in content
+
+
+def test_install_script_prints_kimi_discovery_prompt() -> None:
+    content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
+
+    assert "function Write-KimiOperatorPrompt" in content
+    assert "----- BEGIN KIMI PROMPT -----" in content
+    assert "Search available file-system drives for likely macOS or Hackintosh .vmx files" in content
+    assert "Ask the operator to choose the source .vmx and clone count, from 1 to 100." in content
+    assert "Stop and wait for explicit confirmation before any real clone action." in content
+
+
 def test_windows_ci_exercises_mock_install_and_ops_status() -> None:
     content = (REPO_ROOT / ".github" / "workflows" / "windows-kimi-ops-smoke.yml").read_text(
         encoding="utf-8"

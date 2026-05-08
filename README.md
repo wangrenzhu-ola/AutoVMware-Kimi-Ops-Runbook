@@ -59,7 +59,7 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 .\install.ps1
 ```
 
-安装脚本会先检查环境。检查不通过时，脚本会直接停下，不会安装 Kimi，也不会写配置。
+安装脚本会先检查交付包和基础运行环境。只有 Windows、PowerShell、Python、技能文件、默认配置格式这类基础条件不可用时才会停下。源 VMX、输出盘、磁盘空间、VMware 工具这类克隆前条件只会作为提示打印出来，不阻断安装；这些信息由 Kimi 在后续只读发现和计划阶段确认。
 
 脚本会检查：
 
@@ -68,11 +68,11 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 - `python` 是否可用。
 - 交付包里的技能文件是否完整。
 - 默认配置是否能读取。
-- 源 VMX 是否存在。
-- 目标盘是否存在、是否至少够 1 台克隆并额外预留 100GB。
-- VMware Workstation 的 `vmrun` 和 `vmware-vdiskmanager` 是否能找到。
+- 默认源 VMX 是否存在。如果不存在，安装继续，由 Kimi 帮运维发现真实 `.vmx`。
+- 默认目标盘是否存在、是否至少够 1 台克隆并额外预留 100GB。如果不存在或空间不足，安装继续，由 Kimi 在确定输出目录和数量后重新检查。
+- VMware Workstation 的 `vmrun` 和 `vmware-vdiskmanager` 是否能找到。如果找不到，安装继续，但 Kimi 会在真实克隆前报告阻断项。
 
-安装阶段不会要求机器一次性满足 100 台的空间预算。真实克隆前，Kimi 会按本次输入的数量重新计算空间；单批最多 100 台，并且必须额外预留 100GB。
+安装阶段不会要求机器一次性满足 100 台的空间预算，也不会假设每台机器都使用 `F:` 盘。真实克隆前，Kimi 会先发现镜像、让运维确认源 `.vmx`、输出目录和数量，再按本次输入的数量重新计算空间；单批最多 100 台，并且必须额外预留 100GB。
 
 检查通过后，脚本才会：
 
@@ -80,7 +80,16 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 - 创建 `C:\Users\PC12\Documents\AutoVMware\config`。
 - 创建 `C:\Users\PC12\Documents\AutoVMware\reports\dem009\screenshots`。
 - 复制默认配置到 `C:\Users\PC12\Documents\AutoVMware\config\autovmware-macos-vmx-clone.json`。如果这个配置已经存在，不会覆盖。
-- 打印下一步怎么和 Kimi 说。
+- 打印下一步怎么打开 Kimi CLI，以及一段可以直接粘贴给 Kimi 的提示词。
+
+安装结束后，进入安装脚本打印的 AutoVMware 目录并启动 Kimi：
+
+```powershell
+cd C:\Users\PC12\Documents\AutoVMware
+kimi
+```
+
+然后把安装脚本输出的 `BEGIN KIMI PROMPT` 到 `END KIMI PROMPT` 之间的内容粘给 Kimi。Kimi 会先只读发现可能的 macOS / Hackintosh `.vmx`，展示候选镜像和磁盘空间，询问要克隆几个，再生成计划等待确认。没有明确确认前，Kimi 不应该执行真实克隆。
 
 如果只想检查和准备目录，不安装 Kimi CLI：
 
