@@ -12,16 +12,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HERMES_PROFILE=autovmware-brain \
     BRAIN_API_HOST=0.0.0.0 \
     BRAIN_API_PORT=3104 \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple \
+    PIP_TRUSTED_HOST=mirrors.aliyun.com \
     PATH=/opt/hermes-venv/bin:$PATH
 
-RUN apt-get update \
+RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g; s|http://deb.debian.org/debian-security|http://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     && apt-get install -y --no-install-recommends git curl ca-certificates tini \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth 1 --branch "${HERMES_REF}" "${HERMES_REPO}" /opt/hermes-agent \
     && python -m venv /opt/hermes-venv \
     && /opt/hermes-venv/bin/python -m pip install --upgrade pip setuptools wheel \
-    && /opt/hermes-venv/bin/python -m pip install -e /opt/hermes-agent
+    && /opt/hermes-venv/bin/python -m pip install -e /opt/hermes-agent \
+    && /opt/hermes-venv/bin/python -m pip install lark-oapi
 
 WORKDIR /opt/autovmware-hermes-brain
 COPY deploy/hermes-brain/brain_api.py /opt/autovmware-hermes-brain/brain_api.py
