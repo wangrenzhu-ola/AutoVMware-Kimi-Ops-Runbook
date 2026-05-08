@@ -82,6 +82,8 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 - 复制默认配置到 `C:\Users\PC12\Documents\AutoVMware\config\autovmware-macos-vmx-clone.json`。如果这个配置已经存在，不会覆盖。
 - 打印下一步怎么打开 Kimi CLI，以及一段可以直接粘贴给 Kimi 的提示词。
 
+如果系统里还没有 Kimi CLI，安装脚本会先安装或定位 `uv`，再执行 `uv tool install --python 3.13 kimi-cli`，刷新当前 PowerShell 会话的 PATH，并用实际找到的 `kimi.exe` 路径运行 `kimi --version` 验证。默认情况下不需要运维单独安装 Kimi。只有显式传入 `-SkipKimiInstall` 时，脚本才会跳过 Kimi 安装。
+
 安装结束后，进入安装脚本打印的 AutoVMware 目录并启动 Kimi：
 
 ```powershell

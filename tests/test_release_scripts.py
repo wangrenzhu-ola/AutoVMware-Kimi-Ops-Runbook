@@ -59,6 +59,19 @@ def test_install_script_prints_kimi_discovery_prompt() -> None:
     assert "Stop and wait for explicit confirmation before any real clone action." in content
 
 
+def test_install_script_installs_and_verifies_kimi_cli() -> None:
+    content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
+
+    assert "function Install-KimiCli" in content
+    assert 'Invoke-RestMethod -Uri "https://astral.sh/uv/install.ps1"' in content
+    assert "& $uv tool install --python 3.13 kimi-cli" in content
+    assert "function Update-CurrentPath" in content
+    assert "function Find-KimiExecutable" in content
+    assert 'Join-Path $userLocalBin "kimi.exe"' in content
+    assert "& $kimiPath --version" in content
+    assert "https://code.kimi.com/install.ps1" not in content
+
+
 def test_windows_ci_exercises_mock_install_and_ops_status() -> None:
     content = (REPO_ROOT / ".github" / "workflows" / "windows-kimi-ops-smoke.yml").read_text(
         encoding="utf-8"

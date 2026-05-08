@@ -34,6 +34,38 @@ function Test-Command {
     return $null -ne $command
 }
 
+function Get-UserLocalBinPath {
+    if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+        return $null
+    }
+    return Join-Path $env:USERPROFILE ".local\bin"
+}
+
+function Update-CurrentPath {
+    $pathParts = New-Object System.Collections.Generic.List[string]
+
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    if (-not [string]::IsNullOrWhiteSpace($machinePath)) {
+        $machinePath.Split(";") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $pathParts.Add($_) }
+    }
+
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    if (-not [string]::IsNullOrWhiteSpace($userPath)) {
+        $userPath.Split(";") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $pathParts.Add($_) }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:Path)) {
+        $env:Path.Split(";") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $pathParts.Add($_) }
+    }
+
+    $userLocalBin = Get-UserLocalBinPath
+    if (-not [string]::IsNullOrWhiteSpace($userLocalBin)) {
+        $pathParts.Add($userLocalBin)
+    }
+
+    $env:Path = ($pathParts | Select-Object -Unique) -join ";"
+}
+
 function Find-Executable {
     param(
         [string]$CommandName,
@@ -49,6 +81,64 @@ function Find-Executable {
         }
     }
     return $null
+}
+
+function Find-KimiExecutable {
+    $fallbacks = @()
+    $userLocalBin = Get-UserLocalBinPath
+    if (-not [string]::IsNullOrWhiteSpace($userLocalBin)) {
+        $fallbacks += (Join-Path $userLocalBin "kimi.exe")
+        $fallbacks += (Join-Path $userLocalBin "kimi")
+    }
+    return Find-Executable "kimi" $fallbacks
+}
+
+function Find-UvExecutable {
+    $fallbacks = @()
+    $userLocalBin = Get-UserLocalBinPath
+    if (-not [string]::IsNullOrWhiteSpace($userLocalBin)) {
+        $fallbacks += (Join-Path $userLocalBin "uv.exe")
+        $fallbacks += (Join-Path $userLocalBin "uv")
+    }
+    return Find-Executable "uv" $fallbacks
+}
+
+function Install-KimiCli {
+    Update-CurrentPath
+
+    $kimi = Find-KimiExecutable
+    if (-not [string]::IsNullOrWhiteSpace($kimi)) {
+        Write-Host "Kimi CLI is already available: $kimi"
+        return $kimi
+    }
+
+    Write-Host "kimi command was not found. Installing uv and kimi-cli..."
+    $uv = Find-UvExecutable
+    if ([string]::IsNullOrWhiteSpace($uv)) {
+        Write-Host "uv command was not found. Installing uv through the official installer..."
+        Invoke-RestMethod -Uri "https://astral.sh/uv/install.ps1" | Invoke-Expression
+        Update-CurrentPath
+        $uv = Find-UvExecutable
+    }
+
+    if ([string]::IsNullOrWhiteSpace($uv)) {
+        throw "uv was not found after installation. Restart PowerShell and run install.ps1 again, or install uv manually."
+    }
+
+    Write-Host "Using uv: $uv"
+    & $uv tool install --python 3.13 kimi-cli
+    if ($LASTEXITCODE -ne 0) {
+        throw "uv failed to install kimi-cli."
+    }
+
+    Update-CurrentPath
+    $kimi = Find-KimiExecutable
+    if ([string]::IsNullOrWhiteSpace($kimi)) {
+        throw "kimi-cli installation finished, but kimi was not found on PATH or in the user local bin directory. Restart PowerShell and run install.ps1 again."
+    }
+
+    Write-Host "Kimi CLI installed: $kimi"
+    return $kimi
 }
 
 function Get-FreeGb {
@@ -226,23 +316,22 @@ if ([string]::IsNullOrWhiteSpace($SkillSource)) {
 Invoke-PreflightDoctor -SkillSourcePath $SkillSource -TargetRepoRoot $RepoRoot -UseMockMode ([bool]$MockMode)
 
 Write-Step "Checking Kimi CLI"
+$kimiPath = $null
 if ($MockMode) {
     Write-Host "Mock mode enabled; not installing or calling real Kimi CLI."
 } elseif (-not $SkipKimiInstall) {
-    if (-not (Test-Command "kimi")) {
-        Write-Host "kimi command was not found. Installing Kimi CLI through the official installer..."
-        Invoke-RestMethod https://code.kimi.com/install.ps1 | Invoke-Expression
-    } else {
-        Write-Host "Kimi CLI is already available."
-    }
+    $kimiPath = Install-KimiCli
+} else {
+    Update-CurrentPath
+    $kimiPath = Find-KimiExecutable
 }
 
-if ((-not $MockMode) -and (Test-Command "kimi")) {
-    kimi --version
+if ((-not $MockMode) -and (-not [string]::IsNullOrWhiteSpace($kimiPath))) {
+    & $kimiPath --version
 } elseif ($MockMode) {
     Write-Host "Kimi CLI version check skipped in mock mode."
 } else {
-    Write-Warning "Kimi CLI was not found. Re-run without -SkipKimiInstall or install Kimi CLI manually."
+    Write-Warning "Kimi CLI was not found because -SkipKimiInstall was provided. Re-run without -SkipKimiInstall to install it."
 }
 
 Write-Step "Preparing AutoVMware directories"
