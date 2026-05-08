@@ -3,7 +3,11 @@ param(
     [string]$WorkDir = "",
     [string]$RepoRoot = "",
     [string]$KimiTokenEnvVar = "KIMI_API_KEY",
+    [string]$KimiApiKey = "",
+    [string]$KimiBaseUrl = "https://api.kimi.com/coding/v1",
+    [string]$KimiModelName = "kimi-for-coding",
     [string]$DummyKimiToken = "",
+    [switch]$PromptKimiApiKey,
     [switch]$MockMode,
     [switch]$SkipKimiInstall,
     [switch]$Force
@@ -56,6 +60,18 @@ function Remove-DirectoryIfExists {
     }
 }
 
+function Read-HiddenText {
+    param([string]$Prompt)
+
+    $secure = Read-Host $Prompt -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
 Set-Tls12
 
 if ([string]::IsNullOrWhiteSpace($WorkDir)) {
@@ -102,13 +118,24 @@ Write-Host ("Skill source: {0}" -f $skillSource)
 
 Write-Step "Running installer"
 $env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource
+if ($PromptKimiApiKey -and [string]::IsNullOrWhiteSpace($KimiApiKey)) {
+    $KimiApiKey = Read-HiddenText "Paste Kimi API Key (input is hidden)"
+}
+if (-not [string]::IsNullOrWhiteSpace($KimiApiKey)) {
+    Set-Item -Path ("Env:{0}" -f $KimiTokenEnvVar) -Value $KimiApiKey
+    if ($KimiTokenEnvVar -ne "KIMI_API_KEY") {
+        $env:KIMI_API_KEY = $KimiApiKey
+    }
+}
 $installArgs = @(
     "-NoProfile",
     "-ExecutionPolicy", "Bypass",
     "-File", $installPath.FullName,
     "-RepoRoot", $RepoRoot,
     "-SkillSource", $skillSource,
-    "-KimiTokenEnvVar", $KimiTokenEnvVar
+    "-KimiTokenEnvVar", $KimiTokenEnvVar,
+    "-KimiBaseUrl", $KimiBaseUrl,
+    "-KimiModelName", $KimiModelName
 )
 if (-not [string]::IsNullOrWhiteSpace($DummyKimiToken)) { $installArgs += @("-DummyKimiToken", $DummyKimiToken) }
 if ($MockMode) { $installArgs += "-MockMode" }

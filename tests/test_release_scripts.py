@@ -81,7 +81,11 @@ def test_install_script_installs_and_verifies_kimi_cli() -> None:
     assert 'Join-Path $userLocalBin "kimi.exe"' in content
     assert "& $kimiPath --version" in content
     assert "function Get-KimiCommandLine" in content
-    assert "'& \"{0}\"' -f $KimiPath" in content
+    assert "'& \"{0}\" --yolo' -f $KimiPath" in content
+    assert "function Set-KimiCliAuth" in content
+    assert "Configured Kimi CLI API-key auth" in content
+    assert "config.toml" in content
+    assert "key=[redacted]" in content
     assert "当前已打开的 PowerShell 可能还识别不了 kimi" in content
     assert "https://code.kimi.com/install.ps1" not in content
 
@@ -109,6 +113,10 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert '[Environment]::GetFolderPath("MyDocuments")' in content
     assert '$skillSource = Join-Path $packageRoot "skills\\autovmware-macos-vmx-clone"' in content
     assert "$env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource" in content
+    assert "[string]$KimiApiKey" in content
+    assert "[switch]$PromptKimiApiKey" in content
+    assert '"-KimiBaseUrl", $KimiBaseUrl' in content
+    assert '"-KimiModelName", $KimiModelName' in content
     assert '"-File", $installPath.FullName' in content
     assert '"-RepoRoot", $RepoRoot' in content
     assert '"-SkillSource", $skillSource' in content

@@ -94,6 +94,7 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 - 创建 `C:\Users\PC12\Documents\AutoVMware\config`。
 - 创建 `C:\Users\PC12\Documents\AutoVMware\reports\dem009\screenshots`。
 - 复制默认配置到 `C:\Users\PC12\Documents\AutoVMware\config\autovmware-macos-vmx-clone.json`。如果这个配置已经存在，不会覆盖。
+- 如果传入 `-PromptKimiApiKey`、`-KimiApiKey`，或当前环境已经有 `KIMI_API_KEY`，自动配置 Kimi CLI API Key 认证，免去首次启动后的网页登录。
 - 打印下一步怎么打开 Kimi CLI，以及一段可以直接粘贴给 Kimi 的提示词。
 
 如果系统里还没有 Kimi CLI，安装脚本会先安装或定位 `uv`，再执行 `uv tool install --python 3.13 kimi-cli`，刷新当前 PowerShell 会话的 PATH，并用实际找到的 `kimi.exe` 路径运行 `kimi --version` 验证。默认情况下不需要运维单独安装 Kimi。只有显式传入 `-SkipKimiInstall` 时，脚本才会跳过 Kimi 安装。
@@ -102,7 +103,7 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 
 ```powershell
 cd C:\Users\PC12\Documents\AutoVMware
-& "C:\Users\PC12\.local\bin\kimi.exe"
+& "C:\Users\PC12\.local\bin\kimi.exe" --yolo
 ```
 
 一键安装器会在子 PowerShell 里安装 Kimi，所以当前已经打开的 `PS D:\>` 窗口可能还不能直接识别 `kimi`。脚本会把 Kimi 所在目录写入用户 PATH；新开一个 PowerShell 后通常可以直接运行 `kimi`。
@@ -122,6 +123,19 @@ cd C:\Users\PC12\Documents\AutoVMware
 ```
 
 ## Kimi token 申请和安全配置
+
+安装时可以直接让脚本隐藏读取 Kimi API Key，并写入本机用户环境变量和 `~\.kimi\config.toml`：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/wangrenzhu-ola/AutoVMware-Kimi-Ops-Runbook/main/install-latest.ps1))) -PromptKimiApiKey"
+```
+
+也可以先把 token 放到当前 PowerShell 环境里再安装：
+
+```powershell
+$env:KIMI_API_KEY = "<issued-token>"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/wangrenzhu-ola/AutoVMware-Kimi-Ops-Runbook/main/install-latest.ps1)))"
+```
 
 安装完成后，运维必须先向 Infra/Hermes 申请 Kimi ops token，不能把 token 写进仓库、Issue、PR、CI 日志或截图。完整 SOP 在 `docs\ops\kimi-token-sop.md`，配置模板在 `config\kimi-ops.example.json`，安装脚本也会在目标机生成 `config\kimi-ops.env.example` 和只含 `[redacted]` / `[missing]` 的 `config\kimi-token-status.json`。
 
@@ -172,10 +186,10 @@ C:\Users\PC12\Documents\AutoVMware\config\autovmware-macos-vmx-clone.json
 
 ```powershell
 cd C:\Users\PC12\Documents\AutoVMware
-& "C:\Users\PC12\.local\bin\kimi.exe"
+& "C:\Users\PC12\.local\bin\kimi.exe" --yolo
 ```
 
-如果是新开的 PowerShell，且用户 PATH 已生效，也可以直接运行 `kimi`。
+如果是新开的 PowerShell，且用户 PATH 已生效，也可以直接运行 `kimi --yolo`。
 
 先让 Kimi 检查环境：
 

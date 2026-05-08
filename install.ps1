@@ -2,7 +2,11 @@ param(
     [string]$RepoRoot = "C:\Users\PC12\Documents\AutoVMware",
     [string]$SkillSource = "",
     [string]$KimiTokenEnvVar = "KIMI_API_KEY",
+    [string]$KimiApiKey = "",
+    [string]$KimiBaseUrl = "https://api.kimi.com/coding/v1",
+    [string]$KimiModelName = "kimi-for-coding",
     [string]$DummyKimiToken = "",
+    [switch]$PromptKimiApiKey,
     [switch]$MockMode,
     [switch]$SkipKimiInstall,
     [switch]$Force
@@ -184,9 +188,106 @@ function Get-KimiCommandLine {
     param([string]$KimiPath)
 
     if ([string]::IsNullOrWhiteSpace($KimiPath)) {
-        return "kimi"
+        return "kimi --yolo"
     }
-    return ('& "{0}"' -f $KimiPath)
+    return ('& "{0}" --yolo' -f $KimiPath)
+}
+
+function Read-HiddenText {
+    param([string]$Prompt)
+
+    $secure = Read-Host $Prompt -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
+function ConvertTo-TomlString {
+    param([string]$Value)
+    if ($null -eq $Value) {
+        return '""'
+    }
+    return ('"{0}"' -f (($Value -replace "\\", "\\") -replace '"', '\"'))
+}
+
+function Set-KimiCliAuth {
+    param(
+        [string]$ApiKey,
+        [string]$TokenEnvVar,
+        [string]$BaseUrl,
+        [string]$ModelName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TokenEnvVar)) {
+        $TokenEnvVar = "KIMI_API_KEY"
+    }
+
+    $effectiveApiKey = $ApiKey
+    if ([string]::IsNullOrWhiteSpace($effectiveApiKey)) {
+        $effectiveApiKey = [Environment]::GetEnvironmentVariable($TokenEnvVar, "Process")
+    }
+    if ([string]::IsNullOrWhiteSpace($effectiveApiKey)) {
+        $effectiveApiKey = [Environment]::GetEnvironmentVariable($TokenEnvVar, "User")
+    }
+    if ([string]::IsNullOrWhiteSpace($effectiveApiKey) -and $TokenEnvVar -ne "KIMI_API_KEY") {
+        $effectiveApiKey = [Environment]::GetEnvironmentVariable("KIMI_API_KEY", "Process")
+    }
+    if ([string]::IsNullOrWhiteSpace($effectiveApiKey) -and $TokenEnvVar -ne "KIMI_API_KEY") {
+        $effectiveApiKey = [Environment]::GetEnvironmentVariable("KIMI_API_KEY", "User")
+    }
+
+    if ([string]::IsNullOrWhiteSpace($effectiveApiKey)) {
+        Write-Host "Kimi API key was not provided. Kimi may ask for /login on first launch." -ForegroundColor Yellow
+        return $false
+    }
+
+    [Environment]::SetEnvironmentVariable($TokenEnvVar, $effectiveApiKey, "User")
+    Set-Item -Path ("Env:{0}" -f $TokenEnvVar) -Value $effectiveApiKey
+
+    if ($TokenEnvVar -ne "KIMI_API_KEY") {
+        [Environment]::SetEnvironmentVariable("KIMI_API_KEY", $effectiveApiKey, "User")
+        $env:KIMI_API_KEY = $effectiveApiKey
+    }
+
+    [Environment]::SetEnvironmentVariable("KIMI_BASE_URL", $BaseUrl, "User")
+    [Environment]::SetEnvironmentVariable("KIMI_MODEL_NAME", $ModelName, "User")
+    $env:KIMI_BASE_URL = $BaseUrl
+    $env:KIMI_MODEL_NAME = $ModelName
+
+    $kimiDir = Join-Path $env:USERPROFILE ".kimi"
+    New-Item -ItemType Directory -Force -Path $kimiDir | Out-Null
+    $configPath = Join-Path $kimiDir "config.toml"
+    $configContent = @(
+        ("default_model = {0}" -f (ConvertTo-TomlString $ModelName)),
+        "default_thinking = false",
+        "default_yolo = false",
+        "default_plan_mode = false",
+        'theme = "dark"',
+        "",
+        ("[providers.{0}]" -f $ModelName),
+        'type = "kimi"',
+        ("base_url = {0}" -f (ConvertTo-TomlString $BaseUrl)),
+        'api_key = "set-by-KIMI_API_KEY-env"',
+        "",
+        ("[models.{0}]" -f $ModelName),
+        ("provider = {0}" -f (ConvertTo-TomlString $ModelName)),
+        ("model = {0}" -f (ConvertTo-TomlString $ModelName)),
+        "max_context_size = 262144",
+        'capabilities = ["thinking"]',
+        "",
+        "[loop_control]",
+        "max_steps_per_turn = 100",
+        "max_retries_per_step = 3",
+        "reserved_context_size = 50000",
+        "compaction_trigger_ratio = 0.85"
+    )
+    $configContent | Set-Content -LiteralPath $configPath -Encoding UTF8
+
+    Write-Host ("Configured Kimi CLI API-key auth: env={0}, base_url={1}, model={2}, config={3}, key=[redacted]" -f $TokenEnvVar, $BaseUrl, $ModelName, $configPath)
+    return $true
 }
 
 function Get-FreeGb {
@@ -398,6 +499,17 @@ if ((-not $MockMode) -and (-not [string]::IsNullOrWhiteSpace($kimiPath))) {
     Write-Warning "Kimi CLI was not found because -SkipKimiInstall was provided. Re-run without -SkipKimiInstall to install it."
 }
 
+Write-Step "Configuring Kimi CLI authentication"
+$kimiAuthConfigured = $false
+if ($MockMode) {
+    Write-Host "Mock mode enabled; not writing real Kimi CLI authentication."
+} else {
+    if ($PromptKimiApiKey -and [string]::IsNullOrWhiteSpace($KimiApiKey)) {
+        $KimiApiKey = Read-HiddenText "粘贴 Kimi API Key（输入不会显示）"
+    }
+    $kimiAuthConfigured = Set-KimiCliAuth -ApiKey $KimiApiKey -TokenEnvVar $KimiTokenEnvVar -BaseUrl $KimiBaseUrl -ModelName $KimiModelName
+}
+
 Write-Step "Preparing AutoVMware directories"
 New-Item -ItemType Directory -Force -Path $RepoRoot | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $RepoRoot "config") | Out-Null
@@ -423,7 +535,7 @@ $tokenExample | Set-Content -LiteralPath $tokenExamplePath -Encoding ASCII
 Write-Host "Created token configuration example: $tokenExamplePath"
 
 $tokenStatusPath = Join-Path $RepoRoot "config\kimi-token-status.json"
-$tokenPresent = (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($KimiTokenEnvVar))) -or (-not [string]::IsNullOrWhiteSpace($DummyKimiToken))
+$tokenPresent = $kimiAuthConfigured -or (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($KimiTokenEnvVar))) -or (-not [string]::IsNullOrWhiteSpace($DummyKimiToken))
 $tokenStatus = [ordered]@{
     ok = $true
     token_env_var = $KimiTokenEnvVar
@@ -446,7 +558,11 @@ Write-Host "2. 把下方中文提示词完整粘贴给 Kimi。Kimi 会先帮运�
 Write-Host ""
 Write-Host "3. Kimi 必须先生成并展示计划，等运维明确确认后才允许执行真实克隆。"
 Write-Host ""
-Write-Host "4. 使用前先向 Infra/Hermes 申请 Kimi ops token，按 config\\kimi-ops.env.example 写入机器环境变量。不要把真实 token 粘贴到 GitHub、日志或聊天里。"
+if ($kimiAuthConfigured) {
+    Write-Host "4. Kimi API Key 已写入本机用户环境变量和 Kimi CLI 配置，启动后通常不需要网页登录。不要把真实 token 粘贴到 GitHub、日志或聊天里。"
+} else {
+    Write-Host "4. 还没有检测到 Kimi API Key。首次启动如果要求登录，请先配置 KIMI_API_KEY，或重新运行安装器并传入 -KimiApiKey。"
+}
 Write-Host ""
 Write-Host "5. 真实克隆前，Kimi 必须列出源 VMX、输出目录、克隆数量、是否开机、以及每一台目标虚拟机路径。"
 Write-Host ""
