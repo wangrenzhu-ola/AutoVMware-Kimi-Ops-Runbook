@@ -313,6 +313,14 @@ if ([string]::IsNullOrWhiteSpace($SkillSource)) {
     $SkillSource = Join-Path $PSScriptRoot "skills\autovmware-macos-vmx-clone"
 }
 
+if (-not [string]::IsNullOrWhiteSpace($env:AUTOVMWARE_RELEASE_SKILL_SOURCE) -and ($SkillSource -eq $RepoRoot -or -not (Test-Path -LiteralPath $SkillSource))) {
+    Write-Host ("Using release skill source from AUTOVMWARE_RELEASE_SKILL_SOURCE: {0}" -f $env:AUTOVMWARE_RELEASE_SKILL_SOURCE) -ForegroundColor Yellow
+    $SkillSource = $env:AUTOVMWARE_RELEASE_SKILL_SOURCE
+}
+
+Write-Host ("Install target: {0}" -f $RepoRoot)
+Write-Host ("Skill source: {0}" -f $SkillSource)
+
 Invoke-PreflightDoctor -SkillSourcePath $SkillSource -TargetRepoRoot $RepoRoot -UseMockMode ([bool]$MockMode)
 
 Write-Step "Checking Kimi CLI"

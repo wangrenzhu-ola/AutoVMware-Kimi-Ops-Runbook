@@ -73,6 +73,16 @@ def test_install_script_installs_and_verifies_kimi_cli() -> None:
     assert "https://code.kimi.com/install.ps1" not in content
 
 
+def test_install_script_recovers_release_skill_source_from_environment() -> None:
+    content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
+
+    assert "AUTOVMWARE_RELEASE_SKILL_SOURCE" in content
+    assert "$SkillSource -eq $RepoRoot" in content
+    assert "Using release skill source from AUTOVMWARE_RELEASE_SKILL_SOURCE" in content
+    assert 'Write-Host ("Install target: {0}" -f $RepoRoot)' in content
+    assert 'Write-Host ("Skill source: {0}" -f $SkillSource)' in content
+
+
 def test_install_latest_downloads_and_runs_release_installer() -> None:
     content = (REPO_ROOT / "install-latest.ps1").read_text(encoding="utf-8")
 
@@ -85,6 +95,7 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert 'Get-ChildItem -LiteralPath $extractDir -Recurse -File -Filter "install.ps1"' in content
     assert '[Environment]::GetFolderPath("MyDocuments")' in content
     assert '$skillSource = Join-Path $packageRoot "skills\\autovmware-macos-vmx-clone"' in content
+    assert "$env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource" in content
     assert "-SkillSource $skillSource" in content
     assert "-RepoRoot $RepoRoot" in content
     assert "-MockMode:$MockMode" in content

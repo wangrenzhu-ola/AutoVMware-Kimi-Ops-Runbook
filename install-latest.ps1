@@ -101,6 +101,7 @@ if (-not (Test-Path -LiteralPath $skillSource)) {
 Write-Host ("Skill source: {0}" -f $skillSource)
 
 Write-Step "Running installer"
+$env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource
 & $installPath.FullName `
     -RepoRoot $RepoRoot `
     -SkillSource $skillSource `
