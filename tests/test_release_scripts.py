@@ -96,10 +96,11 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert '[Environment]::GetFolderPath("MyDocuments")' in content
     assert '$skillSource = Join-Path $packageRoot "skills\\autovmware-macos-vmx-clone"' in content
     assert "$env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource" in content
-    assert "-SkillSource $skillSource" in content
-    assert "-RepoRoot $RepoRoot" in content
-    assert "-MockMode:$MockMode" in content
-    assert "@installArgs" not in content
+    assert '"-File", $installPath.FullName' in content
+    assert '"-RepoRoot", $RepoRoot' in content
+    assert '"-SkillSource", $skillSource' in content
+    assert "& powershell.exe @installArgs" in content
+    assert "if ($LASTEXITCODE -ne 0)" in content
 
 
 def test_windows_ci_exercises_mock_install_and_ops_status() -> None:

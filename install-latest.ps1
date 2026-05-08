@@ -102,11 +102,21 @@ Write-Host ("Skill source: {0}" -f $skillSource)
 
 Write-Step "Running installer"
 $env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource
-& $installPath.FullName `
-    -RepoRoot $RepoRoot `
-    -SkillSource $skillSource `
-    -KimiTokenEnvVar $KimiTokenEnvVar `
-    -DummyKimiToken $DummyKimiToken `
-    -MockMode:$MockMode `
-    -SkipKimiInstall:$SkipKimiInstall `
-    -Force:$Force
+$installArgs = @(
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-File", $installPath.FullName,
+    "-RepoRoot", $RepoRoot,
+    "-SkillSource", $skillSource,
+    "-KimiTokenEnvVar", $KimiTokenEnvVar,
+    "-DummyKimiToken", $DummyKimiToken
+)
+if ($MockMode) { $installArgs += "-MockMode" }
+if ($SkipKimiInstall) { $installArgs += "-SkipKimiInstall" }
+if ($Force) { $installArgs += "-Force" }
+
+Write-Host ("PowerShell: {0}" -f (Get-Command powershell.exe).Source)
+& powershell.exe @installArgs
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
