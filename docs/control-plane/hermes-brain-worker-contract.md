@@ -10,7 +10,14 @@
 - `GET /workers`：查看当前 worker registry。
 - `POST /workers/heartbeat`：目标机器上报 heartbeat。
 
-Feishu websocket 由容器内 Hermes Gateway 负责；Worker API 由同容器 `brain_api.py` 负责。两者共享同一 Podman runtime 边界，但 secrets 不写入镜像。
+Feishu websocket 由容器内 `opsbrain_feishu_bridge.py` 负责，不再使用通用 Hermes Gateway 直接接管该 bot。Bridge 提供 Infra运维大脑 / OpsBrain 固定身份与 Stage-1 只读命令：
+
+- `/ops health`：返回 Brain API health、service、runtime、worker_count。
+- `/ops workers`：返回 worker registry 摘要，敏感字段脱敏。
+- `/ops doctor` / `/ops help`：说明安全边界和可用命令。
+- `你是谁` / `当前身份` / `identity`：固定回答 Infra运维大脑 / OpsBrain。
+
+Worker API 与 Feishu bridge 共享同一 Podman runtime 边界，但 secrets 不写入镜像。
 
 ## POST /workers/heartbeat
 

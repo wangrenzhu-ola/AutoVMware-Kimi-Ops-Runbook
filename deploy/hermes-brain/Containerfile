@@ -1,6 +1,6 @@
 # AutoVMware Hermes Brain container image.
 # This image intentionally keeps Feishu credentials outside the image; pass them via env file.
-# Runtime entrypoint starts `python -m hermes_cli.main gateway run --replace` via start.sh.
+# Runtime entrypoint starts the OpsBrain Feishu command bridge via start.sh.
 FROM python:3.11-slim
 
 ARG HERMES_REPO=https://github.com/NousResearch/hermes-agent.git
@@ -29,6 +29,7 @@ RUN git clone --depth 1 --branch "${HERMES_REF}" "${HERMES_REPO}" /opt/hermes-ag
 
 WORKDIR /opt/autovmware-hermes-brain
 COPY deploy/hermes-brain/brain_api.py /opt/autovmware-hermes-brain/brain_api.py
+COPY deploy/hermes-brain/opsbrain_feishu_bridge.py /opt/autovmware-hermes-brain/opsbrain_feishu_bridge.py
 COPY deploy/hermes-brain/start.sh /opt/autovmware-hermes-brain/start.sh
 RUN chmod +x /opt/autovmware-hermes-brain/start.sh \
     && mkdir -p /opt/autovmware-hermes-brain/hermes /opt/autovmware-hermes-brain/state /opt/autovmware-hermes-brain/logs

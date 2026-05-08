@@ -21,5 +21,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Hermes Feishu websocket credentials come from env file. Never bake them into image.
-exec python -m hermes_cli.main gateway run --replace
+# OpsBrain Feishu websocket credentials come from env file. Never bake them into image.
+# This container intentionally runs the OpsBrain command/profile layer, not the
+# generic Hermes Gateway, so the bot identity stays Infra运维大脑 / OpsBrain.
+exec /opt/hermes-venv/bin/python /opt/autovmware-hermes-brain/opsbrain_feishu_bridge.py

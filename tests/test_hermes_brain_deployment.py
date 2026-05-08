@@ -16,8 +16,7 @@ def test_podman_hermes_brain_deployment_artifacts_are_declared() -> None:
     deploy_script = read("scripts/deploy/aliyun-podman-hermes-brain.sh")
 
     assert "HERMES_HOME" in containerfile
-    assert "hermes_cli.main" in containerfile
-    assert "gateway run" in containerfile
+    assert "opsbrain_feishu_bridge.py" in containerfile
     assert "FEISHU_APP_ID=" in env_example
     assert "FEISHU_APP_SECRET=" in env_example
     assert "changeme" in env_example.lower()
