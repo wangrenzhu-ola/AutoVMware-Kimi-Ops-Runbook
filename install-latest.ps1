@@ -100,15 +100,12 @@ if (-not (Test-Path -LiteralPath $skillSource)) {
 }
 Write-Host ("Skill source: {0}" -f $skillSource)
 
-$installArgs = @(
-    "-RepoRoot", $RepoRoot,
-    "-SkillSource", $skillSource,
-    "-KimiTokenEnvVar", $KimiTokenEnvVar,
-    "-DummyKimiToken", $DummyKimiToken
-)
-if ($MockMode) { $installArgs += "-MockMode" }
-if ($SkipKimiInstall) { $installArgs += "-SkipKimiInstall" }
-if ($Force) { $installArgs += "-Force" }
-
 Write-Step "Running installer"
-& $installPath.FullName @installArgs
+& $installPath.FullName `
+    -RepoRoot $RepoRoot `
+    -SkillSource $skillSource `
+    -KimiTokenEnvVar $KimiTokenEnvVar `
+    -DummyKimiToken $DummyKimiToken `
+    -MockMode:$MockMode `
+    -SkipKimiInstall:$SkipKimiInstall `
+    -Force:$Force

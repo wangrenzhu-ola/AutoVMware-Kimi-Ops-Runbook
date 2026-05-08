@@ -85,8 +85,10 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert 'Get-ChildItem -LiteralPath $extractDir -Recurse -File -Filter "install.ps1"' in content
     assert '[Environment]::GetFolderPath("MyDocuments")' in content
     assert '$skillSource = Join-Path $packageRoot "skills\\autovmware-macos-vmx-clone"' in content
-    assert '"-SkillSource", $skillSource' in content
-    assert "& $installPath.FullName @installArgs" in content
+    assert "-SkillSource $skillSource" in content
+    assert "-RepoRoot $RepoRoot" in content
+    assert "-MockMode:$MockMode" in content
+    assert "@installArgs" not in content
 
 
 def test_windows_ci_exercises_mock_install_and_ops_status() -> None:
