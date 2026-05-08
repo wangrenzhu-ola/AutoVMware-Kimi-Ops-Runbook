@@ -62,6 +62,13 @@ function Get-FreeGb {
     }
 }
 
+function Test-RunningOnWindows {
+    if ($PSVersionTable.ContainsKey("Platform")) {
+        return $PSVersionTable.Platform -eq "Win32NT"
+    }
+    return $env:OS -eq "Windows_NT"
+}
+
 function Invoke-PreflightDoctor {
     param(
         [string]$SkillSourcePath,
@@ -72,7 +79,7 @@ function Invoke-PreflightDoctor {
     Write-Step "Running preflight checks"
     $failures = New-Object System.Collections.Generic.List[string]
 
-    $runningOnWindows = $PSVersionTable.Platform -eq "Win32NT" -or $env:OS -eq "Windows_NT"
+    $runningOnWindows = Test-RunningOnWindows
     Write-Check "Windows" $runningOnWindows "This installer must run on the Windows AutoVMware host."
     if (-not $runningOnWindows) { $failures.Add("Run this installer on the Windows target host.") }
 

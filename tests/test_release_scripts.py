@@ -10,6 +10,9 @@ def test_install_script_is_windows_powershell_5_safe_ascii() -> None:
     content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
 
     assert content.isascii()
+    assert '$PSVersionTable.ContainsKey("Platform")' in content
+    assert '$runningOnWindows = Test-RunningOnWindows' in content
+    assert '$runningOnWindows = $PSVersionTable.Platform' not in content
 
 
 def test_release_builder_encodes_powershell_scripts_with_utf8_bom() -> None:
