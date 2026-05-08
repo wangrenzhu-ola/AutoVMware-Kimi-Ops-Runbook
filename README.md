@@ -98,12 +98,14 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 
 如果系统里还没有 Kimi CLI，安装脚本会先安装或定位 `uv`，再执行 `uv tool install --python 3.13 kimi-cli`，刷新当前 PowerShell 会话的 PATH，并用实际找到的 `kimi.exe` 路径运行 `kimi --version` 验证。默认情况下不需要运维单独安装 Kimi。只有显式传入 `-SkipKimiInstall` 时，脚本才会跳过 Kimi 安装。
 
-安装结束后，进入安装脚本打印的 AutoVMware 目录并启动 Kimi：
+安装结束后，进入安装脚本打印的 AutoVMware 目录并启动 Kimi。优先使用安装脚本打印的完整命令，例如：
 
 ```powershell
 cd C:\Users\PC12\Documents\AutoVMware
-kimi
+& "C:\Users\PC12\.local\bin\kimi.exe"
 ```
+
+一键安装器会在子 PowerShell 里安装 Kimi，所以当前已经打开的 `PS D:\>` 窗口可能还不能直接识别 `kimi`。脚本会把 Kimi 所在目录写入用户 PATH；新开一个 PowerShell 后通常可以直接运行 `kimi`。
 
 然后把安装脚本输出的 `开始：复制给 Kimi 的中文提示词` 到 `结束：复制给 Kimi 的中文提示词` 之间的内容粘给 Kimi。Kimi 会先只读发现可能的 macOS / Hackintosh `.vmx`，展示候选镜像和磁盘空间，询问要克隆几个，再生成计划等待确认。没有明确确认前，Kimi 不应该执行真实克隆。
 
@@ -170,8 +172,10 @@ C:\Users\PC12\Documents\AutoVMware\config\autovmware-macos-vmx-clone.json
 
 ```powershell
 cd C:\Users\PC12\Documents\AutoVMware
-kimi
+& "C:\Users\PC12\.local\bin\kimi.exe"
 ```
+
+如果是新开的 PowerShell，且用户 PATH 已生效，也可以直接运行 `kimi`。
 
 先让 Kimi 检查环境：
 

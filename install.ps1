@@ -74,6 +74,33 @@ function Update-CurrentPath {
     $env:Path = ($pathParts | Select-Object -Unique) -join ";"
 }
 
+function Add-UserPathIfMissing {
+    param([string]$PathToAdd)
+
+    if ([string]::IsNullOrWhiteSpace($PathToAdd)) {
+        return
+    }
+
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $pathParts = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace($userPath)) {
+        $userPath.Split(";") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $pathParts.Add($_) }
+    }
+
+    $alreadyPresent = $false
+    foreach ($entry in $pathParts) {
+        if ($entry.TrimEnd("\") -ieq $PathToAdd.TrimEnd("\")) {
+            $alreadyPresent = $true
+        }
+    }
+
+    if (-not $alreadyPresent) {
+        $pathParts.Add($PathToAdd)
+        [Environment]::SetEnvironmentVariable("Path", (($pathParts | Select-Object -Unique) -join ";"), "User")
+        Write-Host "Added Kimi bin directory to the user PATH for new PowerShell windows: $PathToAdd"
+    }
+}
+
 function Find-Executable {
     param(
         [string]$CommandName,
@@ -116,6 +143,8 @@ function Install-KimiCli {
 
     $kimi = Find-KimiExecutable
     if (-not [string]::IsNullOrWhiteSpace($kimi)) {
+        Add-UserPathIfMissing -PathToAdd (Split-Path -Parent $kimi)
+        Update-CurrentPath
         Write-Host "Kimi CLI is already available: $kimi"
         return $kimi
     }
@@ -145,8 +174,19 @@ function Install-KimiCli {
         throw "kimi-cli installation finished, but kimi was not found on PATH or in the user local bin directory. Restart PowerShell and run install.ps1 again."
     }
 
+    Add-UserPathIfMissing -PathToAdd (Split-Path -Parent $kimi)
+    Update-CurrentPath
     Write-Host "Kimi CLI installed: $kimi"
     return $kimi
+}
+
+function Get-KimiCommandLine {
+    param([string]$KimiPath)
+
+    if ([string]::IsNullOrWhiteSpace($KimiPath)) {
+        return "kimi"
+    }
+    return ('& "{0}"' -f $KimiPath)
 }
 
 function Get-FreeGb {
@@ -168,14 +208,17 @@ function Test-RunningOnWindows {
 }
 
 function Write-KimiOperatorPrompt {
-    param([string]$TargetRepoRoot)
+    param(
+        [string]$TargetRepoRoot,
+        [string]$KimiCommand
+    )
 
     Write-Step "Kimi 操作指南"
     Write-Host "先按下面 3 步操作："
     Write-Host ""
     Write-Host "1. 进入 AutoVMware 安装目录并打开 Kimi CLI："
     Write-Host "   cd $TargetRepoRoot"
-    Write-Host "   kimi"
+    Write-Host "   $KimiCommand"
     Write-Host ""
     Write-Host "2. 复制下面两条分隔线之间的中文提示词，粘贴到 Kimi 里。"
     Write-Host "3. Kimi 会先只读发现候选 .vmx，询问源镜像、输出目录和克隆数量；没有看到最终计划并明确确认前，不会执行真实克隆。"
@@ -396,7 +439,8 @@ Write-Host "Created redacted token status: $tokenStatusPath"
 Write-Step "安装完成后的操作指南"
 Write-Host "1. 进入 AutoVMware 安装目录并启动 Kimi："
 Write-Host "   cd $RepoRoot"
-Write-Host "   kimi"
+$kimiCommand = Get-KimiCommandLine -KimiPath $kimiPath
+Write-Host "   $kimiCommand"
 Write-Host ""
 Write-Host "2. 把下方中文提示词完整粘贴给 Kimi。Kimi 会先帮运维发现真实源 VMX，并询问要克隆几台。"
 Write-Host ""
@@ -405,5 +449,7 @@ Write-Host ""
 Write-Host "4. 使用前先向 Infra/Hermes 申请 Kimi ops token，按 config\\kimi-ops.env.example 写入机器环境变量。不要把真实 token 粘贴到 GitHub、日志或聊天里。"
 Write-Host ""
 Write-Host "5. 真实克隆前，Kimi 必须列出源 VMX、输出目录、克隆数量、是否开机、以及每一台目标虚拟机路径。"
+Write-Host ""
+Write-Host "提示：一键安装器是在子 PowerShell 里安装 Kimi 的，当前已打开的 PowerShell 可能还识别不了 kimi。上面打印的是可直接运行的完整命令；新开一个 PowerShell 后通常也可以直接运行 kimi。"
 
-Write-KimiOperatorPrompt -TargetRepoRoot $RepoRoot
+Write-KimiOperatorPrompt -TargetRepoRoot $RepoRoot -KimiCommand $kimiCommand

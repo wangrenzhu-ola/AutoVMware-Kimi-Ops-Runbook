@@ -57,7 +57,9 @@ def test_install_script_prints_kimi_discovery_prompt() -> None:
     content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
 
     assert "function Write-KimiOperatorPrompt" in content
+    assert "[string]$KimiCommand" in content
     assert "Kimi 操作指南" in content
+    assert 'Write-Host "   $KimiCommand"' in content
     assert "----- 开始：复制给 Kimi 的中文提示词 -----" in content
     assert "你是这台 Windows 主机上的 AutoVMware macOS VMX 克隆运维助手。" in content
     assert "先搜索本机可用磁盘里的 macOS / Hackintosh .vmx 候选镜像" in content
@@ -70,12 +72,17 @@ def test_install_script_installs_and_verifies_kimi_cli() -> None:
     content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
 
     assert "function Install-KimiCli" in content
+    assert "function Add-UserPathIfMissing" in content
+    assert 'SetEnvironmentVariable("Path"' in content
     assert 'Invoke-RestMethod -Uri "https://astral.sh/uv/install.ps1"' in content
     assert "& $uv tool install --python 3.13 kimi-cli" in content
     assert "function Update-CurrentPath" in content
     assert "function Find-KimiExecutable" in content
     assert 'Join-Path $userLocalBin "kimi.exe"' in content
     assert "& $kimiPath --version" in content
+    assert "function Get-KimiCommandLine" in content
+    assert "'& \"{0}\"' -f $KimiPath" in content
+    assert "当前已打开的 PowerShell 可能还识别不了 kimi" in content
     assert "https://code.kimi.com/install.ps1" not in content
 
 
