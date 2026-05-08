@@ -108,9 +108,9 @@ $installArgs = @(
     "-File", $installPath.FullName,
     "-RepoRoot", $RepoRoot,
     "-SkillSource", $skillSource,
-    "-KimiTokenEnvVar", $KimiTokenEnvVar,
-    "-DummyKimiToken", $DummyKimiToken
+    "-KimiTokenEnvVar", $KimiTokenEnvVar
 )
+if (-not [string]::IsNullOrWhiteSpace($DummyKimiToken)) { $installArgs += @("-DummyKimiToken", $DummyKimiToken) }
 if ($MockMode) { $installArgs += "-MockMode" }
 if ($SkipKimiInstall) { $installArgs += "-SkipKimiInstall" }
 if ($Force) { $installArgs += "-Force" }

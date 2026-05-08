@@ -99,6 +99,8 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert '"-File", $installPath.FullName' in content
     assert '"-RepoRoot", $RepoRoot' in content
     assert '"-SkillSource", $skillSource' in content
+    assert 'if (-not [string]::IsNullOrWhiteSpace($DummyKimiToken))' in content
+    assert '"-DummyKimiToken", $DummyKimiToken' in content
     assert "& powershell.exe @installArgs" in content
     assert "if ($LASTEXITCODE -ne 0)" in content
 
