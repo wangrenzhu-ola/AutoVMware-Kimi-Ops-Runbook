@@ -28,6 +28,14 @@ function Write-Check {
     Write-Host ("[{0}] {1}: {2}" -f $status, $Name, $Detail) -ForegroundColor $color
 }
 
+function Write-WarnCheck {
+    param(
+        [string]$Name,
+        [string]$Detail
+    )
+    Write-Host ("[WARN] {0}: {1}" -f $Name, $Detail) -ForegroundColor Yellow
+}
+
 function Test-Command {
     param([string]$Name)
     $command = Get-Command $Name -ErrorAction SilentlyContinue
@@ -162,32 +170,36 @@ function Test-RunningOnWindows {
 function Write-KimiOperatorPrompt {
     param([string]$TargetRepoRoot)
 
-    Write-Step "Kimi operator prompt"
-    Write-Host "Open Kimi CLI from the AutoVMware directory:"
+    Write-Step "Kimi 操作指南"
+    Write-Host "先按下面 3 步操作："
+    Write-Host ""
+    Write-Host "1. 进入 AutoVMware 安装目录并打开 Kimi CLI："
     Write-Host "   cd $TargetRepoRoot"
     Write-Host "   kimi"
     Write-Host ""
-    Write-Host "Paste this prompt into Kimi:"
-    Write-Host "----- BEGIN KIMI PROMPT -----"
-    Write-Host "You are the AutoVMware macOS VMX clone operator on this Windows host."
-    Write-Host "Work in this directory:"
+    Write-Host "2. 复制下面两条分隔线之间的中文提示词，粘贴到 Kimi 里。"
+    Write-Host "3. Kimi 会先只读发现候选 .vmx，询问源镜像、输出目录和克隆数量；没有看到最终计划并明确确认前，不会执行真实克隆。"
+    Write-Host ""
+    Write-Host "----- 开始：复制给 Kimi 的中文提示词 -----"
+    Write-Host "你是这台 Windows 主机上的 AutoVMware macOS VMX 克隆运维助手。"
+    Write-Host "请在这个目录中工作："
     Write-Host $TargetRepoRoot
     Write-Host ""
-    Write-Host "Goal:"
-    Write-Host "Help operations find the source macOS VMware .vmx image, choose a clone output directory, ask how many clones to create, then generate a safe clone plan."
+    Write-Host "目标："
+    Write-Host "帮助运维找到需要克隆的 macOS / Hackintosh VMware .vmx 源镜像，确认克隆输出目录，询问需要克隆的数量，然后生成安全的克隆计划。"
     Write-Host ""
-    Write-Host "Rules:"
-    Write-Host "1. Do not read or print .env files or secrets."
-    Write-Host "2. Do not create, start, stop, delete, snapshot, clean, or clone any VM until the operator explicitly confirms the final plan."
-    Write-Host "3. First run only read-only discovery and doctor commands."
-    Write-Host "4. Search available file-system drives for likely macOS or Hackintosh .vmx files. Prefer the built-in discover command, for example:"
+    Write-Host "工作规则："
+    Write-Host "1. 不要读取、打印或暴露 .env 文件、token、密钥或任何秘密信息。"
+    Write-Host "2. 在运维明确确认最终计划前，不要创建、启动、停止、删除、快照、清理或克隆任何虚拟机。"
+    Write-Host "3. 第一阶段只能执行只读发现和 doctor 检查命令。"
+    Write-Host "4. 先搜索本机可用磁盘里的 macOS / Hackintosh .vmx 候选镜像。优先使用内置 discover 命令，例如："
     Write-Host "   python .\skills\autovmware-macos-vmx-clone\scripts\cli.py discover --drive D --format markdown"
-    Write-Host "5. Show the operator the candidate .vmx paths, target drive free space, and a recommended output directory."
-    Write-Host "6. Ask the operator to choose the source .vmx and clone count, from 1 to 100."
-    Write-Host "7. After the operator chooses, update config\autovmware-macos-vmx-clone.json, run doctor, generate an approval JSON, validate it, and run plan-clone."
-    Write-Host "8. Print the complete plan: source .vmx, clone count, output directory, memory, disk, clone mode, power-on policy, and every target .vmx path."
-    Write-Host "9. Stop and wait for explicit confirmation before any real clone action."
-    Write-Host "----- END KIMI PROMPT -----"
+    Write-Host "5. 把候选 .vmx 路径、目标盘可用空间、建议输出目录展示给运维。"
+    Write-Host "6. 询问运维选择哪个源 .vmx，并询问克隆数量；数量范围是 1 到 100。"
+    Write-Host "7. 运维选择后，更新 config\autovmware-macos-vmx-clone.json，运行 doctor，生成 approval JSON，校验 approval JSON，然后运行 plan-clone。"
+    Write-Host "8. 输出完整计划：源 .vmx、克隆数量、输出目录、内存、磁盘、克隆模式、是否开机、每一台目标虚拟机的 .vmx 路径。"
+    Write-Host "9. 输出计划后必须停止，等待运维输入明确确认语句，才能执行任何真实克隆动作。"
+    Write-Host "----- 结束：复制给 Kimi 的中文提示词 -----"
 }
 
 function Invoke-PreflightDoctor {
@@ -244,19 +256,20 @@ function Invoke-PreflightDoctor {
 
     if ($null -ne $config -and -not $UseMockMode) {
         $sourceVmxOk = Test-Path -LiteralPath $config.source_vmx
-        Write-Check "Source VMX" $sourceVmxOk $config.source_vmx
+        if ($sourceVmxOk) { Write-Check "Source VMX" $true $config.source_vmx } else { Write-WarnCheck "Source VMX" $config.source_vmx }
         if (-not $sourceVmxOk) { $readinessWarnings.Add("The default source VMX does not exist. Kimi should discover the real source image on this host.") }
 
         $targetRoot = [string]$config.target_root
         $targetDrive = [System.IO.Path]::GetPathRoot($targetRoot)
         $targetDriveOk = -not [string]::IsNullOrWhiteSpace($targetDrive) -and (Test-Path -LiteralPath $targetDrive)
-        Write-Check "Target drive" $targetDriveOk $targetDrive
+        if ($targetDriveOk) { Write-Check "Target drive" $true $targetDrive } else { Write-WarnCheck "Target drive" $targetDrive }
         if (-not $targetDriveOk) { $readinessWarnings.Add("The default clone output drive does not exist. Kimi should ask the operator for the real output drive.") }
 
         $freeGb = Get-FreeGb $targetRoot
         $minimumRequiredGb = ([int]$config.disk_gb) + 100
         $spaceOk = $null -ne $freeGb -and $freeGb -ge $minimumRequiredGb
-        Write-Check "Target free space" $spaceOk ("free={0}GB, minimum={1}GB for install acceptance: one clone plus 100GB reserve" -f $freeGb, $minimumRequiredGb)
+        $spaceDetail = "free={0}GB, minimum={1}GB for install acceptance: one clone plus 100GB reserve" -f $freeGb, $minimumRequiredGb
+        if ($spaceOk) { Write-Check "Target free space" $true $spaceDetail } else { Write-WarnCheck "Target free space" $spaceDetail }
         if (-not $spaceOk) { $readinessWarnings.Add("The default clone output path does not have a verified space budget. Kimi must re-check space after the operator chooses the output directory and clone count.") }
 
         if ($null -ne $freeGb) {
@@ -273,7 +286,7 @@ function Invoke-PreflightDoctor {
             "C:\Program Files\VMware\VMware Workstation\vmrun.exe"
         )
         $vmrunOk = -not [string]::IsNullOrWhiteSpace($vmrun)
-        Write-Check "VMware vmrun" $vmrunOk $vmrun
+        if ($vmrunOk) { Write-Check "VMware vmrun" $true $vmrun } else { Write-WarnCheck "VMware vmrun" $vmrun }
         if (-not $vmrunOk) { $readinessWarnings.Add("VMware Workstation vmrun.exe was not found. Kimi should report this before any real clone action.") }
 
         $vdisk = Find-Executable "vmware-vdiskmanager" @(
@@ -281,7 +294,7 @@ function Invoke-PreflightDoctor {
             "C:\Program Files\VMware\VMware Workstation\vmware-vdiskmanager.exe"
         )
         $vdiskOk = -not [string]::IsNullOrWhiteSpace($vdisk)
-        Write-Check "VMware disk tool" $vdiskOk $vdisk
+        if ($vdiskOk) { Write-Check "VMware disk tool" $true $vdisk } else { Write-WarnCheck "VMware disk tool" $vdisk }
         if (-not $vdiskOk) { $readinessWarnings.Add("VMware Workstation vmware-vdiskmanager.exe was not found. Kimi should report this before any real clone action.") }
     }
 
@@ -380,17 +393,17 @@ $tokenStatus = [ordered]@{
 $tokenStatus | ConvertTo-Json | Set-Content -LiteralPath $tokenStatusPath -Encoding ASCII
 Write-Host "Created redacted token status: $tokenStatusPath"
 
-Write-Step "Next steps"
-Write-Host "1. Enter the AutoVMware directory and start Kimi:"
+Write-Step "安装完成后的操作指南"
+Write-Host "1. 进入 AutoVMware 安装目录并启动 Kimi："
 Write-Host "   cd $RepoRoot"
 Write-Host "   kimi"
 Write-Host ""
-Write-Host "2. Paste the operator prompt below into Kimi. Kimi should discover the real source VMX and ask how many clones to create."
+Write-Host "2. 把下方中文提示词完整粘贴给 Kimi。Kimi 会先帮运维发现真实源 VMX，并询问要克隆几台。"
 Write-Host ""
-Write-Host "3. Kimi must generate and show a plan first, then wait for explicit confirmation before real clone."
+Write-Host "3. Kimi 必须先生成并展示计划，等运维明确确认后才允许执行真实克隆。"
 Write-Host ""
-Write-Host "4. Before using Kimi, request a token from Infra/Hermes, set it in the machine environment variable shown in config\\kimi-ops.env.example, and never paste the real token into GitHub, logs, or chat."
+Write-Host "4. 使用前先向 Infra/Hermes 申请 Kimi ops token，按 config\\kimi-ops.env.example 写入机器环境变量。不要把真实 token 粘贴到 GitHub、日志或聊天里。"
 Write-Host ""
-Write-Host "5. Kimi must list the source VMX, output directory, count, power-on policy, and every target path before any real clone."
+Write-Host "5. 真实克隆前，Kimi 必须列出源 VMX、输出目录、克隆数量、是否开机、以及每一台目标虚拟机路径。"
 
 Write-KimiOperatorPrompt -TargetRepoRoot $RepoRoot

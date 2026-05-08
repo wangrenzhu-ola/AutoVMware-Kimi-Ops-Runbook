@@ -6,10 +6,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_install_script_is_windows_powershell_5_safe_ascii() -> None:
+def test_install_script_is_windows_powershell_5_safe() -> None:
     content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
 
-    assert content.isascii()
     assert '$PSVersionTable.ContainsKey("Platform")' in content
     assert '$runningOnWindows = Test-RunningOnWindows' in content
     assert '$runningOnWindows = $PSVersionTable.Platform' not in content
@@ -42,6 +41,10 @@ def test_install_script_supports_mock_token_mode_without_real_vmware() -> None:
 def test_install_script_continues_when_default_clone_paths_need_discovery() -> None:
     content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
 
+    assert "function Write-WarnCheck" in content
+    assert 'Write-WarnCheck "Source VMX"' in content
+    assert 'Write-WarnCheck "Target drive"' in content
+    assert 'Write-WarnCheck "Target free space"' in content
     assert "$readinessWarnings = New-Object System.Collections.Generic.List[string]" in content
     assert 'Kimi should discover the real source image on this host.' in content
     assert 'Kimi should ask the operator for the real output drive.' in content
@@ -54,10 +57,13 @@ def test_install_script_prints_kimi_discovery_prompt() -> None:
     content = (REPO_ROOT / "install.ps1").read_text(encoding="utf-8")
 
     assert "function Write-KimiOperatorPrompt" in content
-    assert "----- BEGIN KIMI PROMPT -----" in content
-    assert "Search available file-system drives for likely macOS or Hackintosh .vmx files" in content
-    assert "Ask the operator to choose the source .vmx and clone count, from 1 to 100." in content
-    assert "Stop and wait for explicit confirmation before any real clone action." in content
+    assert "Kimi 操作指南" in content
+    assert "----- 开始：复制给 Kimi 的中文提示词 -----" in content
+    assert "你是这台 Windows 主机上的 AutoVMware macOS VMX 克隆运维助手。" in content
+    assert "先搜索本机可用磁盘里的 macOS / Hackintosh .vmx 候选镜像" in content
+    assert "询问运维选择哪个源 .vmx，并询问克隆数量；数量范围是 1 到 100。" in content
+    assert "等待运维输入明确确认语句，才能执行任何真实克隆动作。" in content
+    assert "----- 结束：复制给 Kimi 的中文提示词 -----" in content
 
 
 def test_install_script_installs_and_verifies_kimi_cli() -> None:

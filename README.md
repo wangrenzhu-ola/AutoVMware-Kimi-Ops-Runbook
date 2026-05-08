@@ -105,7 +105,7 @@ cd C:\Users\PC12\Documents\AutoVMware
 kimi
 ```
 
-然后把安装脚本输出的 `BEGIN KIMI PROMPT` 到 `END KIMI PROMPT` 之间的内容粘给 Kimi。Kimi 会先只读发现可能的 macOS / Hackintosh `.vmx`，展示候选镜像和磁盘空间，询问要克隆几个，再生成计划等待确认。没有明确确认前，Kimi 不应该执行真实克隆。
+然后把安装脚本输出的 `开始：复制给 Kimi 的中文提示词` 到 `结束：复制给 Kimi 的中文提示词` 之间的内容粘给 Kimi。Kimi 会先只读发现可能的 macOS / Hackintosh `.vmx`，展示候选镜像和磁盘空间，询问要克隆几个，再生成计划等待确认。没有明确确认前，Kimi 不应该执行真实克隆。
 
 如果只想检查和准备目录，不安装 Kimi CLI：
 
