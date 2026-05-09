@@ -83,9 +83,14 @@ def test_install_script_installs_and_verifies_kimi_cli() -> None:
     assert "function Get-KimiCommandLine" in content
     assert "'& \"{0}\" --yolo' -f $KimiPath" in content
     assert "function Set-KimiCliAuth" in content
+    assert "function Set-Utf8NoBomLines" in content
+    assert "Set-Utf8NoBomLines -Path $configPath -Lines $configContent" in content
     assert "Configured Kimi CLI API-key auth" in content
     assert "config.toml" in content
     assert "key=[redacted]" in content
+    assert "function Start-KimiCli" in content
+    assert "& $KimiPath --yolo" in content
+    assert "[switch]$SkipKimiLaunch" in content
     assert "当前已打开的 PowerShell 可能还识别不了 kimi" in content
     assert "https://code.kimi.com/install.ps1" not in content
 
@@ -105,9 +110,10 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
 
     assert content.isascii()
     assert "releases/latest" in content
-    assert "releases/tags/$tag" in content
+    assert "function Get-ReleaseDescriptor" in content
+    assert '"https://github.com/$repo/releases/download/$tag/$assetName"' in content
     assert "AutoVMware-Kimi-Ops-v*.zip" in content
-    assert "Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath" in content
+    assert "Invoke-WebRequest -Uri $release.DownloadUrl -OutFile $zipPath" in content
     assert "Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force" in content
     assert 'Get-ChildItem -LiteralPath $extractDir -Recurse -File -Filter "install.ps1"' in content
     assert '[Environment]::GetFolderPath("MyDocuments")' in content
@@ -115,6 +121,7 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert "$env:AUTOVMWARE_RELEASE_SKILL_SOURCE = $skillSource" in content
     assert "[string]$KimiApiKey" in content
     assert "[switch]$PromptKimiApiKey" in content
+    assert "[switch]$SkipKimiLaunch" in content
     assert '"-KimiBaseUrl", $KimiBaseUrl' in content
     assert '"-KimiModelName", $KimiModelName' in content
     assert '"-File", $installPath.FullName' in content
@@ -122,6 +129,7 @@ def test_install_latest_downloads_and_runs_release_installer() -> None:
     assert '"-SkillSource", $skillSource' in content
     assert 'if (-not [string]::IsNullOrWhiteSpace($DummyKimiToken))' in content
     assert '"-DummyKimiToken", $DummyKimiToken' in content
+    assert 'if ($SkipKimiLaunch) { $installArgs += "-SkipKimiLaunch" }' in content
     assert "& powershell.exe @installArgs" in content
     assert "if ($LASTEXITCODE -ne 0)" in content
 

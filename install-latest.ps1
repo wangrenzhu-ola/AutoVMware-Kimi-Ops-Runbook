@@ -10,6 +10,7 @@ param(
     [switch]$PromptKimiApiKey,
     [switch]$MockMode,
     [switch]$SkipKimiInstall,
+    [switch]$SkipKimiLaunch,
     [switch]$Force
 )
 
@@ -53,6 +54,33 @@ function Get-ReleaseZipAsset {
     return $asset
 }
 
+function Get-ReleaseDescriptor {
+    param([string]$RequestedVersion)
+
+    $repo = "wangrenzhu-ola/AutoVMware-Kimi-Ops-Runbook"
+    if ($RequestedVersion -eq "latest") {
+        $release = Get-ReleaseInfo -RequestedVersion $RequestedVersion
+        $asset = Get-ReleaseZipAsset -Release $release
+        return [pscustomobject]@{
+            TagName = $release.tag_name
+            AssetName = $asset.name
+            DownloadUrl = $asset.browser_download_url
+        }
+    }
+
+    $tag = $RequestedVersion
+    if (-not $tag.StartsWith("v")) {
+        $tag = "v$tag"
+    }
+    $packageVersion = $tag.Substring(1)
+    $assetName = "AutoVMware-Kimi-Ops-v$packageVersion.zip"
+    return [pscustomobject]@{
+        TagName = $tag
+        AssetName = $assetName
+        DownloadUrl = "https://github.com/$repo/releases/download/$tag/$assetName"
+    }
+}
+
 function Remove-DirectoryIfExists {
     param([string]$Path)
     if (Test-Path -LiteralPath $Path) {
@@ -83,8 +111,7 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 }
 
 Write-Step "Resolving AutoVMware Kimi Ops release"
-$release = Get-ReleaseInfo -RequestedVersion $Version
-$asset = Get-ReleaseZipAsset -Release $release
+$release = Get-ReleaseDescriptor -RequestedVersion $Version
 
 $downloadDir = Join-Path $WorkDir "download"
 $extractDir = Join-Path $WorkDir "extract"
@@ -92,13 +119,13 @@ New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
 Remove-DirectoryIfExists -Path $extractDir
 New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
 
-$zipPath = Join-Path $downloadDir $asset.name
-Write-Host ("Release: {0}" -f $release.tag_name)
-Write-Host ("Download: {0}" -f $asset.browser_download_url)
+$zipPath = Join-Path $downloadDir $release.AssetName
+Write-Host ("Release: {0}" -f $release.TagName)
+Write-Host ("Download: {0}" -f $release.DownloadUrl)
 Write-Host ("Zip: {0}" -f $zipPath)
 
 Write-Step "Downloading release package"
-Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers @{ "User-Agent" = "AutoVMware-Kimi-Ops-Installer" }
+Invoke-WebRequest -Uri $release.DownloadUrl -OutFile $zipPath -Headers @{ "User-Agent" = "AutoVMware-Kimi-Ops-Installer" }
 
 Write-Step "Extracting release package"
 Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
@@ -140,6 +167,7 @@ $installArgs = @(
 if (-not [string]::IsNullOrWhiteSpace($DummyKimiToken)) { $installArgs += @("-DummyKimiToken", $DummyKimiToken) }
 if ($MockMode) { $installArgs += "-MockMode" }
 if ($SkipKimiInstall) { $installArgs += "-SkipKimiInstall" }
+if ($SkipKimiLaunch) { $installArgs += "-SkipKimiLaunch" }
 if ($Force) { $installArgs += "-Force" }
 
 Write-Host ("PowerShell: {0}" -f (Get-Command powershell.exe).Source)

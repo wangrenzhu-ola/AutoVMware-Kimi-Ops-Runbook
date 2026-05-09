@@ -9,6 +9,7 @@ param(
     [switch]$PromptKimiApiKey,
     [switch]$MockMode,
     [switch]$SkipKimiInstall,
+    [switch]$SkipKimiLaunch,
     [switch]$Force
 )
 
@@ -213,6 +214,16 @@ function ConvertTo-TomlString {
     return ('"{0}"' -f (($Value -replace "\\", "\\") -replace '"', '\"'))
 }
 
+function Set-Utf8NoBomLines {
+    param(
+        [string]$Path,
+        [string[]]$Lines
+    )
+
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllLines($Path, $Lines, $encoding)
+}
+
 function Set-KimiCliAuth {
     param(
         [string]$ApiKey,
@@ -284,10 +295,32 @@ function Set-KimiCliAuth {
         "reserved_context_size = 50000",
         "compaction_trigger_ratio = 0.85"
     )
-    $configContent | Set-Content -LiteralPath $configPath -Encoding UTF8
+    Set-Utf8NoBomLines -Path $configPath -Lines $configContent
 
     Write-Host ("Configured Kimi CLI API-key auth: env={0}, base_url={1}, model={2}, config={3}, key=[redacted]" -f $TokenEnvVar, $BaseUrl, $ModelName, $configPath)
     return $true
+}
+
+function Start-KimiCli {
+    param(
+        [string]$KimiPath,
+        [string]$WorkingDirectory
+    )
+
+    if ([string]::IsNullOrWhiteSpace($KimiPath)) {
+        Write-Warning "Kimi CLI was not found; cannot auto-launch kimi --yolo."
+        return
+    }
+
+    Write-Step "自动启动 Kimi CLI"
+    Write-Host "Launching: $(Get-KimiCommandLine -KimiPath $KimiPath)"
+    Write-Host "如果 Kimi 已打开，请把上方中文提示词完整粘贴进去。"
+    Push-Location $WorkingDirectory
+    try {
+        & $KimiPath --yolo
+    } finally {
+        Pop-Location
+    }
 }
 
 function Get-FreeGb {
@@ -491,14 +524,6 @@ if ($MockMode) {
     $kimiPath = Find-KimiExecutable
 }
 
-if ((-not $MockMode) -and (-not [string]::IsNullOrWhiteSpace($kimiPath))) {
-    & $kimiPath --version
-} elseif ($MockMode) {
-    Write-Host "Kimi CLI version check skipped in mock mode."
-} else {
-    Write-Warning "Kimi CLI was not found because -SkipKimiInstall was provided. Re-run without -SkipKimiInstall to install it."
-}
-
 Write-Step "Configuring Kimi CLI authentication"
 $kimiAuthConfigured = $false
 if ($MockMode) {
@@ -508,6 +533,15 @@ if ($MockMode) {
         $KimiApiKey = Read-HiddenText "粘贴 Kimi API Key（输入不会显示）"
     }
     $kimiAuthConfigured = Set-KimiCliAuth -ApiKey $KimiApiKey -TokenEnvVar $KimiTokenEnvVar -BaseUrl $KimiBaseUrl -ModelName $KimiModelName
+}
+
+Write-Step "Checking Kimi CLI version"
+if ((-not $MockMode) -and (-not [string]::IsNullOrWhiteSpace($kimiPath))) {
+    & $kimiPath --version
+} elseif ($MockMode) {
+    Write-Host "Kimi CLI version check skipped in mock mode."
+} else {
+    Write-Warning "Kimi CLI was not found because -SkipKimiInstall was provided. Re-run without -SkipKimiInstall to install it."
 }
 
 Write-Step "Preparing AutoVMware directories"
@@ -569,3 +603,9 @@ Write-Host ""
 Write-Host "提示：一键安装器是在子 PowerShell 里安装 Kimi 的，当前已打开的 PowerShell 可能还识别不了 kimi。上面打印的是可直接运行的完整命令；新开一个 PowerShell 后通常也可以直接运行 kimi。"
 
 Write-KimiOperatorPrompt -TargetRepoRoot $RepoRoot -KimiCommand $kimiCommand
+
+if ((-not $MockMode) -and (-not $SkipKimiLaunch)) {
+    Start-KimiCli -KimiPath $kimiPath -WorkingDirectory $RepoRoot
+} elseif ($SkipKimiLaunch) {
+    Write-Host "Kimi auto-launch skipped because -SkipKimiLaunch was provided."
+}

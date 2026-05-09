@@ -9,6 +9,7 @@ param(
     [switch]$PromptKimiApiKey,
     [switch]$MockMode,
     [switch]$SkipKimiInstall,
+    [switch]$SkipKimiLaunch,
     [switch]$Force
 )
 
@@ -17,4 +18,4 @@ if (-not (Test-Path -LiteralPath $rootInstall)) {
     throw "在交付包根目录没有找到 install.ps1：$rootInstall"
 }
 
-& $rootInstall -RepoRoot $RepoRoot -SkillSource $SkillSource -KimiTokenEnvVar $KimiTokenEnvVar -KimiApiKey $KimiApiKey -KimiBaseUrl $KimiBaseUrl -KimiModelName $KimiModelName -DummyKimiToken $DummyKimiToken -PromptKimiApiKey:$PromptKimiApiKey -MockMode:$MockMode -SkipKimiInstall:$SkipKimiInstall -Force:$Force
+& $rootInstall -RepoRoot $RepoRoot -SkillSource $SkillSource -KimiTokenEnvVar $KimiTokenEnvVar -KimiApiKey $KimiApiKey -KimiBaseUrl $KimiBaseUrl -KimiModelName $KimiModelName -DummyKimiToken $DummyKimiToken -PromptKimiApiKey:$PromptKimiApiKey -MockMode:$MockMode -SkipKimiInstall:$SkipKimiInstall -SkipKimiLaunch:$SkipKimiLaunch -Force:$Force
