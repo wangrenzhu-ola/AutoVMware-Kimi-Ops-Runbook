@@ -15,6 +15,71 @@ DEFAULT_BRAIN_API_BASE = "http://127.0.0.1:3104"
 SENSITIVE_KEYS = ("token", "secret", "password", "credential", "authorization", "encrypt", "key")
 IDENTITY_KEYWORDS = ("你是谁", "当前身份", "身份", "identity", "who are you", "who r u")
 
+# Kimi fallback configuration (replaces MiniMax M2.7)
+KIMI_API_KEY = os.environ.get("KIMI_API_KEY", "")
+KIMI_BASE_URL = os.environ.get("KIMI_BASE_URL", "https://api.kimi.com/coding")
+KIMI_MODEL = os.environ.get("KIMI_MODEL", "kimi-k2.6")
+OPS_KEYWORDS = (
+    "vmware", "vmx", "clone", "克隆", "worker", "brain", "ops", "运维",
+    "vmrun", "snapshot", "快照", "deploy", "部署", "heartbeat", "心跳",
+    "doctor", "诊断", "health", "status", "状态", "kimi", "token",
+    "podman", "ecs", "aliyun", "阿里云", "windows", "macos", "hackintosh",
+    "disk", "磁盘", "space", "空间", "memory", "内存", "error", "错误",
+    "fail", "失败", "log", "日志", "config", "配置", "install", "安装",
+)
+
+
+def is_ops_related(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in OPS_KEYWORDS)
+
+
+def kimi_chat(user_text: str) -> str | None:
+    """Call Kimi API for ops-related non-/ops queries. Returns None on failure."""
+    if not KIMI_API_KEY:
+        return None
+    url = f"{KIMI_BASE_URL}/chat/completions"
+    payload = {
+        "model": KIMI_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "你是 Infra运维大脑（OpsBrain）的 AI 助手。"
+                    "你只回答运维、VMware、AutoVMware、Worker 部署、Brain API 相关的问题。"
+                    "如果问题与运维无关，礼貌地告诉用户你只会回答运维相关问题，并建议发送 /ops help 查看可用命令。"
+                    "回答要简洁、专业、说人话。"
+                ),
+            },
+            {"role": "user", "content": user_text},
+        ],
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": f"Bearer {KIMI_API_KEY}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            body = response.read().decode("utf-8")
+            result = json.loads(body)
+            choices = result.get("choices", [])
+            if choices and isinstance(choices, list):
+                content = choices[0].get("message", {}).get("content", "")
+                if content:
+                    return str(content).strip()
+            return None
+    except Exception as exc:
+        print(f"opsbrain_feishu: kimi_chat failed: {exc}", flush=True)
+        return None
+
 
 def csv_set(value: str | None) -> set[str]:
     return {item.strip() for item in (value or "").split(",") if item.strip()}
@@ -175,6 +240,13 @@ class OpsBrainRouter:
             return "identity", format_identity()
         if lowered.startswith("/ops"):
             return "unknown_ops", "未知 /ops 子命令。\n\n" + format_help()
+        # Non-/ops text: try Kimi for ops-related queries
+        if is_ops_related(normalized):
+            llm_response = kimi_chat(normalized)
+            if llm_response:
+                return "llm_ops", llm_response
+            # Kimi failed or no API key: fall back to help
+            return "llm_fallback", "OpsBrain LLM 暂时不可用，请尝试 /ops help 查看命令。"
         return None, ""
 
 
