@@ -87,3 +87,24 @@ def test_plain_unrelated_text_is_ignored() -> None:
 
     assert command is None
     assert text == ""
+
+
+def test_ops_related_text_without_minimax_api_key_returns_fallback() -> None:
+    """When MINIMAX_API_KEY is not set, ops-related text returns fallback help."""
+    router = bridge.OpsBrainRouter(FakeBrain())
+
+    command, text = router.route("vmrun 是什么？")
+
+    assert command == "llm_fallback"
+    assert "暂时不可用" in text
+    assert "/ops help" in text
+
+
+def test_non_ops_text_is_ignored() -> None:
+    """Non-ops text without /ops prefix is still ignored."""
+    router = bridge.OpsBrainRouter(FakeBrain())
+
+    command, text = router.route("今天天气怎么样")
+
+    assert command is None
+    assert text == ""
