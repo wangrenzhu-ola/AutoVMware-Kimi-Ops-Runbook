@@ -89,8 +89,8 @@ def test_plain_unrelated_text_is_ignored() -> None:
     assert text == ""
 
 
-def test_ops_related_text_without_minimax_api_key_returns_fallback() -> None:
-    """When MINIMAX_API_KEY is not set, ops-related text returns fallback help."""
+def test_ops_related_text_without_kimi_api_key_returns_fallback() -> None:
+    """When KIMI_API_KEY is not set, ops-related text returns fallback help."""
     router = bridge.OpsBrainRouter(FakeBrain())
 
     command, text = router.route("vmrun 是什么？")
