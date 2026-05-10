@@ -17,7 +17,7 @@ IDENTITY_KEYWORDS = ("你是谁", "当前身份", "身份", "identity", "who are
 
 # Kimi fallback configuration (replaces MiniMax M2.7)
 KIMI_API_KEY = os.environ.get("KIMI_API_KEY", "")
-KIMI_BASE_URL = os.environ.get("KIMI_BASE_URL", "https://api.kimi.com/coding")
+KIMI_BASE_URL = os.environ.get("KIMI_BASE_URL", "https://api.kimi.com/v1")
 KIMI_MODEL = os.environ.get("KIMI_MODEL", "kimi-k2.6")
 OPS_KEYWORDS = (
     "vmware", "vmx", "clone", "克隆", "worker", "brain", "ops", "运维",
